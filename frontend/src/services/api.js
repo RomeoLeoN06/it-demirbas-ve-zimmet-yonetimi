@@ -54,6 +54,10 @@ export const api = {
     const qs = new URLSearchParams(params).toString();
     return request(`/assignments/history${qs ? `?${qs}` : ''}`);
   },
+  getSystemAuditLogs: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/assignments/audit-logs${qs ? `?${qs}` : ''}`);
+  },
 
   // Users (Admin)
   getUsers: (params = {}) => {

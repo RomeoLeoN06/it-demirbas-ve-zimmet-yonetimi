@@ -7,5 +7,7 @@ router.post('/', authenticateToken, requireAdmin, assignmentController.assignAss
 router.post('/return', authenticateToken, requireAdmin, assignmentController.returnAsset);
 router.get('/my-assets', authenticateToken, assignmentController.getMyAssets);
 router.get('/history', authenticateToken, requireAdmin, assignmentController.getAssignmentHistory);
+router.get('/audit-logs', authenticateToken, requireAdmin, assignmentController.getSystemAuditLogs);
 
 module.exports = router;
+

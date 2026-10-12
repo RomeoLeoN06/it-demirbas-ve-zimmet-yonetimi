@@ -75,15 +75,14 @@ export default function Sidebar({ currentTab, setCurrentTab, mobileOpen, setMobi
           )}
         </button>
 
-        {isAdmin && (
-          <button
-            className={`menu-item ${currentTab === 'assignments' ? 'active' : ''}`}
-            onClick={() => handleNav('assignments')}
-          >
-            <ClipboardList size={18} />
-            <span>Zimmet Yönetimi & Loglar</span>
-          </button>
-        )}
+        <button
+          className={`menu-item ${currentTab === 'assignments' ? 'active' : ''}`}
+          onClick={() => handleNav('assignments')}
+        >
+          <ClipboardList size={18} />
+          <span>Zimmet Yönetimi & Loglar</span>
+        </button>
+
 
         {isAdmin && (
           <>

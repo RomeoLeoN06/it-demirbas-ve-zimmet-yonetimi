@@ -98,13 +98,19 @@ export default function App() {
         />
 
         <main className="page-wrapper">
-          {currentTab === 'dashboard' && <Dashboard onNavigateTab={setCurrentTab} />}
+          {currentTab === 'dashboard' && (
+            <Dashboard
+              onNavigateTab={setCurrentTab}
+              onOpenScanner={() => setIsScannerOpen(true)}
+            />
+          )}
           {currentTab === 'assets' && <Assets />}
-          {currentTab === 'assignments' && isAdmin && <Assignments />}
+          {currentTab === 'assignments' && <Assignments />}
           {currentTab === 'users' && isAdmin && <Users />}
           {currentTab === 'my-assets' && <MyAssets />}
           {currentTab === 'profile' && <Profile />}
         </main>
+
       </div>
 
       {/* Global QR Scanner Modal */}

@@ -224,9 +224,73 @@ async function getAssignmentHistory(req, res) {
   }
 }
 
+// Get all system audit logs (Sistem Denetim Logları)
+async function getSystemAuditLogs(req, res) {
+  try {
+    const { page = 1, limit = 15, search = '', action = '' } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    let whereClauses = [];
+    let params = [];
+
+    if (search.trim()) {
+      const s = `%${search.trim()}%`;
+      whereClauses.push('(l.details LIKE ? OR u.full_name LIKE ? OR a.asset_code LIKE ? OR a.name LIKE ?)');
+      params.push(s, s, s, s);
+    }
+
+    if (action) {
+      whereClauses.push('l.action = ?');
+      params.push(action);
+    }
+
+    const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
+    const countSql = `
+      SELECT COUNT(*) as total
+      FROM audit_logs l
+      LEFT JOIN users u ON l.user_id = u.id
+      LEFT JOIN assets a ON l.asset_id = a.id
+      ${whereSql}
+    `;
+    const totalCount = db.prepare(countSql).get(...params).total;
+
+    const sql = `
+      SELECT 
+        l.id, l.action, l.details, l.created_at,
+        u.id as user_id, u.full_name as user_name, u.email as user_email,
+        a.id as asset_id, a.asset_code, a.name as asset_name
+      FROM audit_logs l
+      LEFT JOIN users u ON l.user_id = u.id
+      LEFT JOIN assets a ON l.asset_id = a.id
+      ${whereSql}
+      ORDER BY l.created_at DESC
+      LIMIT ? OFFSET ?
+    `;
+
+    const logs = db.prepare(sql).all(...params, parseInt(limit), offset);
+
+    return res.json({
+      success: true,
+      data: logs,
+      pagination: {
+        total: totalCount,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(totalCount / parseInt(limit))
+      }
+    });
+  } catch (error) {
+    console.error('getSystemAuditLogs error:', error);
+    return res.status(500).json({ success: false, message: 'Sistem logları alınamadı.' });
+  }
+}
+
 module.exports = {
   assignAsset,
   returnAsset,
   getMyAssets,
-  getAssignmentHistory
+  getAssignmentHistory,
+  getSystemAuditLogs
 };
+
