@@ -24,6 +24,7 @@ export default function App() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   // Scanner quick actions state
   const [quickAssignAsset, setQuickAssignAsset] = useState(null);
@@ -79,13 +80,15 @@ export default function App() {
 
   // Logged in -> Render Main Dashboard App
   return (
-    <div className="app-container">
+    <div className={`app-container ${isCollapsed ? 'sidebar-is-collapsed' : ''}`}>
       <Sidebar
         currentTab={currentTab}
         setCurrentTab={setCurrentTab}
         mobileOpen={mobileOpen}
         setMobileOpen={setMobileOpen}
         onOpenScanner={() => setIsScannerOpen(true)}
+        isCollapsed={isCollapsed}
+        setIsCollapsed={setIsCollapsed}
       />
 
       <div className="main-content">
@@ -95,7 +98,10 @@ export default function App() {
           onOpenScanner={() => setIsScannerOpen(true)}
           theme={theme}
           toggleTheme={toggleTheme}
+          isCollapsed={isCollapsed}
+          setIsCollapsed={setIsCollapsed}
         />
+
 
         <main className="page-wrapper">
           {currentTab === 'dashboard' && (
