@@ -1,0 +1,39 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: it_asset_backend
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - NODE_ENV=production
+      - JWT_SECRET=it_demirbas_ve_zimmet_yonetimi_guclu_jwt_secret_anahtari_2026
+      - DATABASE_PATH=/app/data/inventory.db
+    volumes:
+      - backend_data:/app/data
+    restart: unless-stopped
+    networks:
+      - asset_network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: it_asset_frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - asset_network
+
+volumes:
+  backend_data:
+    driver: local
+
+networks:
+  asset_network:
+    driver: bridge
