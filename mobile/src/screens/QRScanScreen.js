@@ -11,9 +11,11 @@ import {
   Modal
 } from 'react-native';
 import { mobileApi } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { colors, radius, spacing } from '../styles/theme';
 
 export default function QRScanScreen() {
+  const { isAdmin } = useAuth();
   const [scanInput, setScanInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [scannedAsset, setScannedAsset] = useState(null);
@@ -220,14 +222,16 @@ export default function QRScanScreen() {
           {/* Quick Field Actions (Personele Teslim Et, Cihazı Geri Kabul Et, Arıza Bildir) */}
           <Text style={styles.actionSectionTitle}>⚡ Hızlı Saha İşlemleri:</Text>
           <View style={styles.actionBtnRow}>
-            {scannedAsset.status !== 'zimmetli' ? (
-              <TouchableOpacity style={styles.btnAssign} onPress={handleOpenAssign}>
-                <Text style={styles.btnAssignText}>Personele Teslim Et</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity style={styles.btnReturn} onPress={handleOpenReturn}>
-                <Text style={styles.btnReturnText}>Cihazı Geri Kabul Et</Text>
-              </TouchableOpacity>
+            {isAdmin && (
+              scannedAsset.status !== 'zimmetli' ? (
+                <TouchableOpacity style={styles.btnAssign} onPress={handleOpenAssign}>
+                  <Text style={styles.btnAssignText}>Personele Teslim Et</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity style={styles.btnReturn} onPress={handleOpenReturn}>
+                  <Text style={styles.btnReturnText}>Cihazı Geri Kabul Et</Text>
+                </TouchableOpacity>
+              )
             )}
 
             <TouchableOpacity style={styles.btnFault} onPress={handleOpenFault}>

@@ -11,19 +11,23 @@ function authenticateToken(req, res, next) {
     return res.status(401).json({ success: false, message: 'Yetkilendirme jetonu (token) bulunamadı. Lütfen giriş yapın.' });
   }
 
-  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+  jwt.verify(token, JWT_SECRET, async (err, decoded) => {
     if (err) {
       return res.status(403).json({ success: false, message: 'Geçersiz veya süresi dolmuş oturum. Lütfen yeniden giriş yapın.' });
     }
 
-    const user = db.prepare('SELECT id, full_name, email, role, department, phone, avatar_url, is_active FROM users WHERE id = ?').get(decoded.id);
+    try {
+      const user = await db.prepare('SELECT id, full_name, email, role, department, phone, avatar_url, is_active FROM users WHERE id = ?').get(decoded.id);
 
-    if (!user || user.is_active === 0) {
-      return res.status(403).json({ success: false, message: 'Kullanıcı hesabı bulunamadı veya pasife alınmış.' });
+      if (!user || user.is_active === 0) {
+        return res.status(403).json({ success: false, message: 'Kullanıcı hesabı bulunamadı veya pasife alınmış.' });
+      }
+
+      req.user = user;
+      next();
+    } catch (dbErr) {
+      return res.status(500).json({ success: false, message: 'Veritabanı bağlantı hatası.' });
     }
-
-    req.user = user;
-    next();
   });
 }
 

@@ -70,6 +70,21 @@ export const api = {
   resetUserPassword: (id, data) => request(`/users/${id}/reset-password`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteUser: (id) => request(`/users/${id}`, { method: 'DELETE' }),
 
+  // Departments (Birimler)
+  getDepartments: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/departments${qs ? `?${qs}` : ''}`);
+  },
+  createDepartment: (data) => request('/departments', { method: 'POST', body: JSON.stringify(data) }),
+  updateDepartment: (id, data) => request(`/departments/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteDepartment: (id) => request(`/departments/${id}`, { method: 'DELETE' }),
+
+  // Roles (Yetki ve Rol Tanımları)
+  getRoles: () => request('/roles'),
+  createRole: (data) => request('/roles', { method: 'POST', body: JSON.stringify(data) }),
+  updateRole: (id, data) => request(`/roles/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteRole: (id) => request(`/roles/${id}`, { method: 'DELETE' }),
+
   // Stats
   getDashboardStats: () => request('/stats/dashboard')
 };

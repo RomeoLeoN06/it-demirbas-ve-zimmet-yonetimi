@@ -29,7 +29,8 @@ async function getUsers(req, res) {
     const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
     const countSql = `SELECT COUNT(*) as total FROM users ${whereSql}`;
-    const totalCount = db.prepare(countSql).get(...params).total;
+    const countRes = await db.prepare(countSql).get(...params);
+    const totalCount = countRes ? countRes.total : 0;
 
     const sql = `
       SELECT 
@@ -42,7 +43,7 @@ async function getUsers(req, res) {
       LIMIT ? OFFSET ?
     `;
 
-    const users = db.prepare(sql).all(...params, parseInt(limit), offset);
+    const users = await db.prepare(sql).all(...params, parseInt(limit), offset);
 
     return res.json({
       success: true,
@@ -64,7 +65,7 @@ async function getUsers(req, res) {
 async function getUserById(req, res) {
   try {
     const { id } = req.params;
-    const user = db.prepare(`
+    const user = await db.prepare(`
       SELECT 
         id, full_name, email, role, department, phone, avatar_url, is_active, created_at
       FROM users
@@ -75,7 +76,7 @@ async function getUserById(req, res) {
       return res.status(404).json({ success: false, message: 'Kullanıcı bulunamadı.' });
     }
 
-    const assignedAssets = db.prepare(`
+    const assignedAssets = await db.prepare(`
       SELECT id, asset_code, name, category, brand, model, serial_number, status
       FROM assets
       WHERE assigned_to_user_id = ?
@@ -103,7 +104,7 @@ async function createUser(req, res) {
       return res.status(400).json({ success: false, message: 'Ad Soyad, E-posta ve Şifre zorunludur.' });
     }
 
-    const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email.toLowerCase().trim());
+    const existing = await db.prepare('SELECT id FROM users WHERE email = ?').get(email.toLowerCase().trim());
     if (existing) {
       return res.status(400).json({ success: false, message: 'Bu e-posta adresiyle kayıtlı kullanıcı zaten var.' });
     }
@@ -117,7 +118,7 @@ async function createUser(req, res) {
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
 
-    const result = stmt.run(
+    const result = await stmt.run(
       full_name.trim(),
       email.toLowerCase().trim(),
       password_hash,
@@ -127,9 +128,9 @@ async function createUser(req, res) {
       avatar_url
     );
 
-    const newUser = db.prepare('SELECT id, full_name, email, role, department, phone, avatar_url, created_at FROM users WHERE id = ?').get(result.lastInsertRowid);
+    const newUser = await db.prepare('SELECT id, full_name, email, role, department, phone, avatar_url, created_at FROM users WHERE id = ?').get(result.lastInsertRowid);
 
-    db.prepare('INSERT INTO audit_logs (user_id, action, details) VALUES (?, ?, ?)')
+    await db.prepare('INSERT INTO audit_logs (user_id, action, details) VALUES (?, ?, ?)')
       .run(req.user.id, 'kullanici_olusturuldu', `Yönetici yeni kullanıcı oluşturdu: ${newUser.full_name} (${newUser.role})`);
 
     return res.status(201).json({
@@ -149,12 +150,12 @@ async function updateUser(req, res) {
     const { id } = req.params;
     const { full_name, role, department, phone, is_active } = req.body;
 
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+    const user = await db.prepare('SELECT * FROM users WHERE id = ?').get(id);
     if (!user) {
       return res.status(404).json({ success: false, message: 'Kullanıcı bulunamadı.' });
     }
 
-    db.prepare(`
+    await db.prepare(`
       UPDATE users SET
         full_name = ?, role = ?, department = ?, phone = ?,
         is_active = ?, updated_at = CURRENT_TIMESTAMP
@@ -168,10 +169,10 @@ async function updateUser(req, res) {
       id
     );
 
-    db.prepare('INSERT INTO audit_logs (user_id, action, details) VALUES (?, ?, ?)')
+    await db.prepare('INSERT INTO audit_logs (user_id, action, details) VALUES (?, ?, ?)')
       .run(req.user.id, 'kullanici_guncellendi', `Kullanıcı bilgileri güncellendi: ${user.full_name}`);
 
-    const updated = db.prepare('SELECT id, full_name, email, role, department, phone, is_active, updated_at FROM users WHERE id = ?').get(id);
+    const updated = await db.prepare('SELECT id, full_name, email, role, department, phone, is_active, updated_at FROM users WHERE id = ?').get(id);
 
     return res.json({
       success: true,
@@ -197,10 +198,10 @@ async function resetUserPassword(req, res) {
     const salt = bcrypt.genSaltSync(10);
     const password_hash = bcrypt.hashSync(new_password, salt);
 
-    db.prepare('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+    await db.prepare('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
       .run(password_hash, id);
 
-    db.prepare('INSERT INTO audit_logs (user_id, action, details) VALUES (?, ?, ?)')
+    await db.prepare('INSERT INTO audit_logs (user_id, action, details) VALUES (?, ?, ?)')
       .run(req.user.id, 'sifre_sifirlandi', `Yönetici kullanıcı şifresini sıfırladı. Kullanıcı ID: ${id}`);
 
     return res.json({
@@ -222,13 +223,13 @@ async function deleteUser(req, res) {
       return res.status(400).json({ success: false, message: 'Kendi hesabınızı silemezsiniz.' });
     }
 
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+    const user = await db.prepare('SELECT * FROM users WHERE id = ?').get(id);
     if (!user) {
       return res.status(404).json({ success: false, message: 'Kullanıcı bulunamadı.' });
     }
 
     // Check if user has active assigned assets
-    const activeAssets = db.prepare('SELECT COUNT(*) as count FROM assets WHERE assigned_to_user_id = ?').get(id);
+    const activeAssets = await db.prepare('SELECT COUNT(*) as count FROM assets WHERE assigned_to_user_id = ?').get(id);
     if (activeAssets.count > 0) {
       return res.status(400).json({
         success: false,
@@ -236,9 +237,9 @@ async function deleteUser(req, res) {
       });
     }
 
-    db.prepare('DELETE FROM users WHERE id = ?').run(id);
+    await db.prepare('DELETE FROM users WHERE id = ?').run(id);
 
-    db.prepare('INSERT INTO audit_logs (user_id, action, details) VALUES (?, ?, ?)')
+    await db.prepare('INSERT INTO audit_logs (user_id, action, details) VALUES (?, ?, ?)')
       .run(req.user.id, 'kullanici_silindi', `Kullanıcı silindi: ${user.full_name} (${user.email})`);
 
     return res.json({

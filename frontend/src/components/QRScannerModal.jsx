@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { X, QrCode, Search, CheckCircle, AlertTriangle, UserCheck, ShieldAlert, Laptop, ArrowRight } from 'lucide-react';
 import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 
 export default function QRScannerModal({ isOpen, onClose, onActionSuccess, onOpenAssign, onOpenReturn, onOpenFault }) {
+  const { isAdmin } = useAuth();
   const [scanQuery, setScanQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [scannedAsset, setScannedAsset] = useState(null);
@@ -192,7 +194,7 @@ export default function QRScannerModal({ isOpen, onClose, onActionSuccess, onOpe
                   Hızlı Saha İşlemleri:
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
-                  {scannedAsset.status !== 'zimmetli' && (
+                  {isAdmin && scannedAsset.status !== 'zimmetli' && (
                     <button
                       className="btn btn-primary btn-sm"
                       onClick={() => {
@@ -205,7 +207,7 @@ export default function QRScannerModal({ isOpen, onClose, onActionSuccess, onOpe
                     </button>
                   )}
 
-                  {scannedAsset.status === 'zimmetli' && (
+                  {isAdmin && scannedAsset.status === 'zimmetli' && (
                     <button
                       className="btn btn-secondary btn-sm"
                       style={{ borderColor: '#10b981', color: '#34d399' }}

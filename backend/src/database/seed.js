@@ -24,7 +24,7 @@ async function seed() {
   `);
 
   const adminResult = insertUser.run(
-    'Alperen Demir (Yönetici)',
+    'Metehan Akbulut (Yönetici)',
     'admin@kurum.gov.tr',
     adminHash,
     'admin',

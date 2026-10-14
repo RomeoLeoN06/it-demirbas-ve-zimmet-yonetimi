@@ -14,6 +14,7 @@ import Dashboard from './pages/Dashboard';
 import Assets from './pages/Assets';
 import Assignments from './pages/Assignments';
 import Users from './pages/Users';
+import Departments from './pages/Departments';
 import MyAssets from './pages/MyAssets';
 import Profile from './pages/Profile';
 
@@ -30,6 +31,7 @@ export default function App() {
   const [quickAssignAsset, setQuickAssignAsset] = useState(null);
   const [quickReturnAsset, setQuickReturnAsset] = useState(null);
   const [quickFaultAsset, setQuickFaultAsset] = useState(null);
+  const [assetStatusFilter, setAssetStatusFilter] = useState('');
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -78,12 +80,26 @@ export default function App() {
     return <Login onNavigateRegister={() => setAuthView('register')} />;
   }
 
-  // Logged in -> Render Main Dashboard App
+  // Yetki Sınırı Koruması: Standart personelin yönetici sekmelerine girmesini engelle
+  const adminOnlyTabs = ['assignments', 'users', 'departments'];
+  const activeTabSafe = (!isAdmin && adminOnlyTabs.includes(currentTab)) ? 'dashboard' : currentTab;
+
+  const handleNavigateTab = (tab, filter = '') => {
+    if (!isAdmin && adminOnlyTabs.includes(tab)) {
+      setCurrentTab('dashboard');
+      return;
+    }
+    if (tab === 'assets') {
+      setAssetStatusFilter(filter || '');
+    }
+    setCurrentTab(tab);
+  };
+
   return (
     <div className={`app-container ${isCollapsed ? 'sidebar-is-collapsed' : ''}`}>
       <Sidebar
-        currentTab={currentTab}
-        setCurrentTab={setCurrentTab}
+        currentTab={activeTabSafe}
+        setCurrentTab={(tab) => handleNavigateTab(tab, '')}
         mobileOpen={mobileOpen}
         setMobileOpen={setMobileOpen}
         onOpenScanner={() => setIsScannerOpen(true)}
@@ -91,9 +107,17 @@ export default function App() {
         setIsCollapsed={setIsCollapsed}
       />
 
+      {/* Mobile Backdrop when sidebar is expanded */}
+      {!isCollapsed && (
+        <div
+          className="sidebar-mobile-backdrop"
+          onClick={() => setIsCollapsed(true)}
+        />
+      )}
+
       <div className="main-content">
         <Navbar
-          currentTab={currentTab}
+          currentTab={activeTabSafe}
           setMobileOpen={setMobileOpen}
           onOpenScanner={() => setIsScannerOpen(true)}
           theme={theme}
@@ -102,21 +126,25 @@ export default function App() {
           setIsCollapsed={setIsCollapsed}
         />
 
-
         <main className="page-wrapper">
-          {currentTab === 'dashboard' && (
+          {activeTabSafe === 'dashboard' && (
             <Dashboard
-              onNavigateTab={setCurrentTab}
+              onNavigateTab={handleNavigateTab}
               onOpenScanner={() => setIsScannerOpen(true)}
             />
           )}
-          {currentTab === 'assets' && <Assets />}
-          {currentTab === 'assignments' && <Assignments />}
-          {currentTab === 'users' && isAdmin && <Users />}
-          {currentTab === 'my-assets' && <MyAssets />}
-          {currentTab === 'profile' && <Profile />}
+          {activeTabSafe === 'assets' && (
+            <Assets
+              initialStatus={assetStatusFilter}
+              onFilterChange={setAssetStatusFilter}
+            />
+          )}
+          {activeTabSafe === 'assignments' && isAdmin && <Assignments />}
+          {activeTabSafe === 'users' && isAdmin && <Users />}
+          {activeTabSafe === 'departments' && isAdmin && <Departments onNavigateTab={handleNavigateTab} />}
+          {activeTabSafe === 'my-assets' && <MyAssets />}
+          {activeTabSafe === 'profile' && <Profile />}
         </main>
-
       </div>
 
       {/* Global QR Scanner Modal */}

@@ -5,13 +5,18 @@ const { JWT_SECRET } = require('../middleware/auth');
 
 function generateToken(user) {
   return jwt.sign(
-    { id: user.id, email: user.email, role: user.role },
+    {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      full_name: user.full_name
+    },
     JWT_SECRET,
     { expiresIn: '7d' }
   );
 }
 
-// Register
+// Register (Normal email/password)
 async function register(req, res) {
   try {
     const { full_name, email, password, department, phone } = req.body;
@@ -24,7 +29,7 @@ async function register(req, res) {
       return res.status(400).json({ success: false, message: 'Şifre en az 6 karakter olmalıdır.' });
     }
 
-    const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email.toLowerCase().trim());
+    const existing = await db.prepare('SELECT id FROM users WHERE email = ?').get(email.toLowerCase().trim());
     if (existing) {
       return res.status(400).json({ success: false, message: 'Bu e-posta adresiyle kayıtlı bir kullanıcı zaten mevcut.' });
     }
@@ -39,7 +44,7 @@ async function register(req, res) {
       VALUES (?, ?, ?, 'personnel', ?, ?, ?)
     `);
 
-    const result = stmt.run(
+    const result = await stmt.run(
       full_name.trim(),
       email.toLowerCase().trim(),
       password_hash,
@@ -48,11 +53,11 @@ async function register(req, res) {
       defaultAvatar
     );
 
-    const newUser = db.prepare('SELECT id, full_name, email, role, department, phone, avatar_url, created_at FROM users WHERE id = ?').get(result.lastInsertRowid);
+    const newUser = await db.prepare('SELECT id, full_name, email, role, department, phone, avatar_url, created_at FROM users WHERE id = ?').get(result.lastInsertRowid);
     const token = generateToken(newUser);
 
     // Audit log
-    db.prepare('INSERT INTO audit_logs (user_id, action, details) VALUES (?, ?, ?)')
+    await db.prepare('INSERT INTO audit_logs (user_id, action, details) VALUES (?, ?, ?)')
       .run(newUser.id, 'kayit_olundu', `Yeni personel sisteme kayıt oldu: ${newUser.full_name}`);
 
     return res.status(201).json({
@@ -76,7 +81,7 @@ async function login(req, res) {
       return res.status(400).json({ success: false, message: 'E-posta ve şifre zorunludur.' });
     }
 
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email.toLowerCase().trim());
+    const user = await db.prepare('SELECT * FROM users WHERE email = ?').get(email.toLowerCase().trim());
     if (!user) {
       return res.status(401).json({ success: false, message: 'E-posta veya şifre hatalı.' });
     }
@@ -107,7 +112,7 @@ async function login(req, res) {
 
     const token = generateToken(safeUser);
 
-    db.prepare('INSERT INTO audit_logs (user_id, action, details) VALUES (?, ?, ?)')
+    await db.prepare('INSERT INTO audit_logs (user_id, action, details) VALUES (?, ?, ?)')
       .run(user.id, 'giris_yapildi', `Kullanıcı sisteme giriş yaptı: ${user.email}`);
 
     return res.json({
@@ -131,7 +136,7 @@ async function googleLogin(req, res) {
       return res.status(400).json({ success: false, message: 'Google e-posta bilgisi eksik.' });
     }
 
-    let user = db.prepare('SELECT * FROM users WHERE email = ?').get(email.toLowerCase().trim());
+    let user = await db.prepare('SELECT * FROM users WHERE email = ?').get(email.toLowerCase().trim());
 
     if (!user) {
       // Create user if not exists
@@ -141,16 +146,16 @@ async function googleLogin(req, res) {
       `);
 
       const defaultAvatar = avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'Kullanici')}&background=0284c7&color=ffffff`;
-      const result = stmt.run(name || email.split('@')[0], email.toLowerCase().trim(), defaultAvatar, google_id || 'google_' + Date.now());
+      const result = await stmt.run(name || email.split('@')[0], email.toLowerCase().trim(), defaultAvatar, google_id || 'google_' + Date.now());
 
-      user = db.prepare('SELECT * FROM users WHERE id = ?').get(result.lastInsertRowid);
+      user = await db.prepare('SELECT * FROM users WHERE id = ?').get(result.lastInsertRowid);
 
-      db.prepare('INSERT INTO audit_logs (user_id, action, details) VALUES (?, ?, ?)')
+      await db.prepare('INSERT INTO audit_logs (user_id, action, details) VALUES (?, ?, ?)')
         .run(user.id, 'google_ile_kayit', `Google ile yeni hesap açıldı: ${user.email}`);
     } else {
       // Update google_id if not present
       if (!user.google_id && google_id) {
-        db.prepare('UPDATE users SET google_id = ? WHERE id = ?').run(google_id, user.id);
+        await db.prepare('UPDATE users SET google_id = ? WHERE id = ?').run(google_id, user.id);
       }
     }
 
@@ -167,7 +172,7 @@ async function googleLogin(req, res) {
 
     const token = generateToken(safeUser);
 
-    db.prepare('INSERT INTO audit_logs (user_id, action, details) VALUES (?, ?, ?)')
+    await db.prepare('INSERT INTO audit_logs (user_id, action, details) VALUES (?, ?, ?)')
       .run(user.id, 'google_ile_giris', `Google hesabı ile oturum açıldı: ${user.email}`);
 
     return res.json({
@@ -185,12 +190,12 @@ async function googleLogin(req, res) {
 // Current User Me
 async function getMe(req, res) {
   try {
-    const user = db.prepare('SELECT id, full_name, email, role, department, phone, avatar_url, created_at FROM users WHERE id = ?').get(req.user.id);
+    const user = await db.prepare('SELECT id, full_name, email, role, department, phone, avatar_url, created_at FROM users WHERE id = ?').get(req.user.id);
     if (!user) {
       return res.status(404).json({ success: false, message: 'Kullanıcı bulunamadı.' });
     }
 
-    const assignedCount = db.prepare('SELECT COUNT(*) as count FROM assets WHERE assigned_to_user_id = ?').get(user.id);
+    const assignedCount = await db.prepare('SELECT COUNT(*) as count FROM assets WHERE assigned_to_user_id = ?').get(user.id);
 
     return res.json({
       success: true,
@@ -214,15 +219,15 @@ async function updateProfile(req, res) {
       return res.status(400).json({ success: false, message: 'Ad Soyad boş bırakılamaz.' });
     }
 
-    db.prepare(`
+    await db.prepare(`
       UPDATE users
       SET full_name = ?, department = ?, phone = ?, avatar_url = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `).run(full_name, department || '', phone || '', avatar_url || '', req.user.id);
 
-    const updatedUser = db.prepare('SELECT id, full_name, email, role, department, phone, avatar_url, updated_at FROM users WHERE id = ?').get(req.user.id);
+    const updatedUser = await db.prepare('SELECT id, full_name, email, role, department, phone, avatar_url, updated_at FROM users WHERE id = ?').get(req.user.id);
 
-    db.prepare('INSERT INTO audit_logs (user_id, action, details) VALUES (?, ?, ?)')
+    await db.prepare('INSERT INTO audit_logs (user_id, action, details) VALUES (?, ?, ?)')
       .run(req.user.id, 'profil_guncellendi', `Profil bilgileri güncellendi: ${full_name}`);
 
     return res.json({
@@ -245,7 +250,7 @@ async function changePassword(req, res) {
       return res.status(400).json({ success: false, message: 'Yeni şifre en az 6 karakter olmalıdır.' });
     }
 
-    const user = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(req.user.id);
+    const user = await db.prepare('SELECT password_hash FROM users WHERE id = ?').get(req.user.id);
 
     if (user.password_hash) {
       if (!current_password) {
@@ -260,9 +265,9 @@ async function changePassword(req, res) {
     const salt = bcrypt.genSaltSync(10);
     const newHash = bcrypt.hashSync(new_password, salt);
 
-    db.prepare('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(newHash, req.user.id);
+    await db.prepare('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(newHash, req.user.id);
 
-    db.prepare('INSERT INTO audit_logs (user_id, action, details) VALUES (?, ?, ?)')
+    await db.prepare('INSERT INTO audit_logs (user_id, action, details) VALUES (?, ?, ?)')
       .run(req.user.id, 'sifre_degistirildi', 'Kullanıcı şifresini değiştirdi.');
 
     return res.json({
@@ -275,11 +280,60 @@ async function changePassword(req, res) {
   }
 }
 
+// Forgot Password / Password Reset request
+async function forgotPassword(req, res) {
+  try {
+    const { email, new_password } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Lütfen kayıtlı e-posta adresinizi giriniz.' });
+    }
+
+    const user = await db.prepare('SELECT id, full_name, email FROM users WHERE email = ?').get(email.toLowerCase().trim());
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Bu e-posta adresine kayıtlı bir hesap bulunamadı.' });
+    }
+
+    if (new_password) {
+      if (new_password.length < 6) {
+        return res.status(400).json({ success: false, message: 'Yeni şifreniz en az 6 karakter olmalıdır.' });
+      }
+
+      const salt = bcrypt.genSaltSync(10);
+      const newHash = bcrypt.hashSync(new_password, salt);
+
+      await db.prepare('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(newHash, user.id);
+
+      await db.prepare('INSERT INTO audit_logs (user_id, action, details) VALUES (?, ?, ?)')
+        .run(user.id, 'sifre_sifirlandi', `Şifre sıfırlama işlemi tamamlandı: ${user.email}`);
+
+      return res.json({
+        success: true,
+        message: 'Şifreniz başarıyla yenilendi! Yeni şifrenizle giriş yapabilirsiniz.'
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Kullanıcı doğrulandı.',
+      user: {
+        email: user.email,
+        full_name: user.full_name
+      }
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    return res.status(500).json({ success: false, message: 'Şifre sıfırlama işlemi sırasında sunucu hatası oluştu.' });
+  }
+}
+
 module.exports = {
   register,
   login,
   googleLogin,
   getMe,
   updateProfile,
-  changePassword
+  changePassword,
+  forgotPassword
 };
+

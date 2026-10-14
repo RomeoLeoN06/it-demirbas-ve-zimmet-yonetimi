@@ -12,7 +12,8 @@ import {
   ChevronLeft,
   ChevronRight,
   PanelLeftClose,
-  PanelLeftOpen
+  PanelLeftOpen,
+  Building2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -54,13 +55,6 @@ const NAV_ITEMS = [
         color: '#f59e0b',
         bgColor: 'rgba(245, 158, 11, 0.16)',
         hasBadge: true
-      },
-      {
-        id: 'assignments',
-        label: 'Zimmet Yönetimi & Loglar',
-        icon: ClipboardList,
-        color: '#f43f5e',
-        bgColor: 'rgba(244, 63, 94, 0.16)'
       }
     ]
   },
@@ -69,11 +63,25 @@ const NAV_ITEMS = [
     adminOnly: true,
     items: [
       {
+        id: 'assignments',
+        label: 'Zimmet Yönetimi & Loglar',
+        icon: ClipboardList,
+        color: '#f43f5e',
+        bgColor: 'rgba(244, 63, 94, 0.16)'
+      },
+      {
         id: 'users',
-        label: 'Kullanıcı & Rol Yönetimi',
+        label: 'Kullanıcı Yönetimi',
         icon: Users,
         color: '#6366f1',
         bgColor: 'rgba(99, 102, 241, 0.16)'
+      },
+      {
+        id: 'departments',
+        label: 'Departman & Rol Tanımları',
+        icon: Building2,
+        color: '#8b5cf6',
+        bgColor: 'rgba(139, 92, 246, 0.16)'
       }
     ]
   },
@@ -116,11 +124,11 @@ export default function Sidebar({
   };
 
   const handleItemClick = (item) => {
-    // If it was collapsed and user clicks an icon, expand it or perform navigation
-    if (isCollapsed) {
-      setIsCollapsed(false);
-    }
     handleNav(item);
+    // If on mobile/tablet and drawer was expanded, collapse back to icon mode after selecting
+    if (typeof window !== 'undefined' && window.innerWidth <= 900 && !isCollapsed) {
+      setIsCollapsed(true);
+    }
   };
 
   return (
@@ -135,8 +143,15 @@ export default function Sidebar({
     >
       {/* Header */}
       <div className="sidebar-header">
-        <div className="brand-icon">
-          <Server size={22} />
+        <div
+          className="brand-icon"
+          onClick={() => {
+            if (isCollapsed) setIsCollapsed(false);
+          }}
+          style={{ cursor: isCollapsed ? 'pointer' : 'default' }}
+          title={isCollapsed ? 'Menüyü Genişlet' : 'IT Demirbaş'}
+        >
+          <Server size={20} />
         </div>
 
         {!effectiveCollapsed && (
@@ -183,10 +198,10 @@ export default function Sidebar({
                       style={{
                         backgroundColor: item.bgColor,
                         color: item.color,
-                        boxShadow: isActive ? `0 0 12px ${item.bgColor}` : 'none'
+                        boxShadow: isActive ? `0 0 14px ${item.color}` : 'none'
                       }}
                     >
-                      <item.icon size={19} />
+                      <item.icon size={16} />
                     </div>
 
                     {!effectiveCollapsed && (

@@ -1,83 +1,146 @@
-const Database = require('better-sqlite3');
-const path = require('path');
-const fs = require('fs');
+const sql = require('mssql');
 
-const dbDir = path.join(__dirname, '..', '..', 'data');
-if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
+const config = {
+  user: process.env.DB_USER || 'it_admin',
+  password: process.env.DB_PASSWORD || 'ItDemirbas2026!',
+  server: process.env.DB_SERVER || 'localhost',
+  port: parseInt(process.env.DB_PORT || '50162'),
+  database: process.env.DB_NAME || 'ITDemirbasDB',
+  options: {
+    encrypt: false,
+    trustServerCertificate: true
+  },
+  pool: {
+    max: 20,
+    min: 2,
+    idleTimeoutMillis: 30000
+  }
+};
+
+let pool = null;
+
+async function getPool() {
+  if (!pool) {
+    try {
+      pool = await sql.connect(config);
+      console.log('[MSSQL] Connected to Microsoft SQL Server (ITDemirbasDB on METEHAN\\SQLEXPRESS)!');
+    } catch (err) {
+      console.error('[MSSQL] Connection error:', err.message);
+      throw err;
+    }
+  }
+  return pool;
 }
 
-const dbPath = process.env.DATABASE_PATH || path.join(dbDir, 'inventory.db');
-const db = new Database(dbPath);
+function translateSql(sqlText) {
+  let paramIndex = 0;
+  let translated = sqlText.replace(/\?/g, () => `@p${paramIndex++}`);
 
-// Enable foreign keys and WAL mode for better concurrency and performance
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+  // Convert SQLite LIMIT ? OFFSET ? to MSSQL OFFSET ? ROWS FETCH NEXT ? ROWS ONLY
+  translated = translated.replace(/LIMIT\s+(@p\d+|\d+)\s+OFFSET\s+(@p\d+|\d+)/gi, (match, limit, offset) => {
+    return `OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY`;
+  });
 
-function initDb() {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      full_name TEXT NOT NULL,
-      email TEXT UNIQUE NOT NULL,
-      password_hash TEXT,
-      role TEXT CHECK(role IN ('admin', 'personnel')) DEFAULT 'personnel',
-      department TEXT,
-      phone TEXT,
-      avatar_url TEXT,
-      google_id TEXT,
-      is_active INTEGER DEFAULT 1,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
+  // Convert standalone LIMIT to MSSQL OFFSET 0 ROWS FETCH NEXT ... ROWS ONLY
+  translated = translated.replace(/LIMIT\s+(@p\d+|\d+)/gi, (match, limit) => {
+    return `OFFSET 0 ROWS FETCH NEXT ${limit} ROWS ONLY`;
+  });
 
-    CREATE TABLE IF NOT EXISTS assets (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      asset_code TEXT UNIQUE NOT NULL,
-      name TEXT NOT NULL,
-      category TEXT NOT NULL,
-      brand TEXT NOT NULL,
-      model TEXT NOT NULL,
-      serial_number TEXT UNIQUE NOT NULL,
-      purchase_date TEXT,
-      warranty_end_date TEXT,
-      purchase_cost REAL DEFAULT 0,
-      status TEXT CHECK(status IN ('depoda', 'zimmetli', 'arizali', 'bakimda', 'hurda')) DEFAULT 'depoda',
-      notes TEXT,
-      qr_code_data TEXT,
-      assigned_to_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS assignments (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      asset_id INTEGER NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
-      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      assigned_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-      assigned_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-      return_date DATETIME,
-      status TEXT CHECK(status IN ('aktif', 'iade_edildi')) DEFAULT 'aktif',
-      handover_notes TEXT,
-      return_notes TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS audit_logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      asset_id INTEGER REFERENCES assets(id) ON DELETE SET NULL,
-      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-      action TEXT NOT NULL,
-      details TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_assets_status ON assets(status);
-    CREATE INDEX IF NOT EXISTS idx_assets_category ON assets(category);
-    CREATE INDEX IF NOT EXISTS idx_assets_code ON assets(asset_code);
-    CREATE INDEX IF NOT EXISTS idx_assignments_asset ON assignments(asset_id);
-    CREATE INDEX IF NOT EXISTS idx_assignments_user ON assignments(user_id);
-  `);
+  return translated;
 }
 
-module.exports = { db, initDb };
+const db = {
+  prepare(sqlText) {
+    return {
+      async get(...params) {
+        const p = await getPool();
+        const req = p.request();
+        const translated = translateSql(sqlText);
+        params.forEach((val, i) => {
+          req.input(`p${i}`, val === undefined ? null : val);
+        });
+        const res = await req.query(translated);
+        return res.recordset[0] || null;
+      },
+
+      async all(...params) {
+        const p = await getPool();
+        const req = p.request();
+        const translated = translateSql(sqlText);
+        params.forEach((val, i) => {
+          req.input(`p${i}`, val === undefined ? null : val);
+        });
+        const res = await req.query(translated);
+        return res.recordset || [];
+      },
+
+      async run(...params) {
+        const p = await getPool();
+        const req = p.request();
+        let translated = translateSql(sqlText);
+
+        const isInsert = /^\s*INSERT\s+INTO/i.test(translated);
+        if (isInsert && !/OUTPUT\s+INSERTED/i.test(translated)) {
+          translated += '; SELECT SCOPE_IDENTITY() AS lastInsertRowid;';
+        }
+
+        params.forEach((val, i) => {
+          req.input(`p${i}`, val === undefined ? null : val);
+        });
+
+        const res = await req.query(translated);
+        const lastInsertRowid = res.recordset && res.recordset[0] ? res.recordset[0].lastInsertRowid : null;
+        return {
+          lastInsertRowid,
+          changes: res.rowsAffected ? res.rowsAffected[0] : 0
+        };
+      }
+    };
+  },
+
+  async exec(sqlText) {
+    const p = await getPool();
+    return await p.request().query(sqlText);
+  },
+
+  transaction(fn) {
+    return async (...args) => {
+      return await fn(...args);
+    };
+  }
+};
+
+async function initDb() {
+  await getPool();
+  try {
+    await db.exec(`
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'departments')
+      BEGIN
+        CREATE TABLE departments (
+          id INT IDENTITY(1,1) PRIMARY KEY,
+          name NVARCHAR(255) UNIQUE NOT NULL,
+          description NVARCHAR(500) NULL,
+          created_at DATETIME2 DEFAULT GETDATE(),
+          updated_at DATETIME2 DEFAULT GETDATE()
+        );
+      END;
+
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'roles')
+      BEGIN
+        CREATE TABLE roles (
+          id INT IDENTITY(1,1) PRIMARY KEY,
+          name NVARCHAR(50) UNIQUE NOT NULL,
+          display_name NVARCHAR(100) NOT NULL,
+          description NVARCHAR(500) NULL,
+          is_system INT DEFAULT 0,
+          created_at DATETIME2 DEFAULT GETDATE(),
+          updated_at DATETIME2 DEFAULT GETDATE()
+        );
+      END;
+    `);
+  } catch (err) {
+    console.error('initDb tables check error:', err.message);
+  }
+}
+
+module.exports = { db, initDb, sql };

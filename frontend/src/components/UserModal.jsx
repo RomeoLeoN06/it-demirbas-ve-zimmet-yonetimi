@@ -8,14 +8,24 @@ export default function UserModal({ isOpen, onClose, user, onSuccess }) {
   const [loading, setLoading] = useState(false);
   const isEditing = Boolean(user);
 
+  const [departmentsList, setDepartmentsList] = useState([]);
+  const [rolesList, setRolesList] = useState([]);
+
   const [formData, setFormData] = useState({
     full_name: '',
     email: '',
     password: '',
     role: 'personnel',
-    department: 'Yazılım ve Yapay Zeka',
+    department: '',
     phone: ''
   });
+
+  useEffect(() => {
+    if (isOpen) {
+      api.getDepartments().then((res) => setDepartmentsList(res.data || [])).catch(() => {});
+      api.getRoles().then((res) => setRolesList(res.data || [])).catch(() => {});
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (user) {
@@ -33,11 +43,11 @@ export default function UserModal({ isOpen, onClose, user, onSuccess }) {
         email: '',
         password: '',
         role: 'personnel',
-        department: 'Yazılım ve Yapay Zeka',
+        department: departmentsList.length > 0 ? departmentsList[0].name : '',
         phone: ''
       });
     }
-  }, [user, isOpen]);
+  }, [user, isOpen, departmentsList]);
 
   if (!isOpen) return null;
 
@@ -136,8 +146,18 @@ export default function UserModal({ isOpen, onClose, user, onSuccess }) {
               <div className="form-group">
                 <label className="form-label">Yetki / Rol *</label>
                 <select name="role" className="form-select" value={formData.role} onChange={handleChange}>
-                  <option value="personnel">Standart Personel</option>
-                  <option value="admin">Sistem Yöneticisi (Admin)</option>
+                  {rolesList.length > 0 ? (
+                    rolesList.map((r) => (
+                      <option key={r.id} value={r.name}>
+                        {r.display_name} {r.is_system === 1 ? '(Sistem Rolü)' : ''}
+                      </option>
+                    ))
+                  ) : (
+                    <>
+                      <option value="personnel">Standart Personel</option>
+                      <option value="admin">Sistem Yöneticisi (Admin)</option>
+                    </>
+                  )}
                 </select>
               </div>
 
@@ -155,15 +175,24 @@ export default function UserModal({ isOpen, onClose, user, onSuccess }) {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Departman / Birim</label>
-              <input
-                type="text"
+              <label className="form-label">Departman / Birim *</label>
+              <select
                 name="department"
-                className="form-input"
-                placeholder="Yazılım, Yapay Zeka, Sistem Güvenliği..."
+                className="form-select"
                 value={formData.department}
                 onChange={handleChange}
-              />
+                required
+              >
+                <option value="">Departman Seçiniz...</option>
+                {departmentsList.map((d) => (
+                  <option key={d.id} value={d.name}>
+                    {d.name}
+                  </option>
+                ))}
+                {formData.department && !departmentsList.some((d) => d.name === formData.department) && (
+                  <option value={formData.department}>{formData.department} (Mevcut)</option>
+                )}
+              </select>
             </div>
           </div>
 

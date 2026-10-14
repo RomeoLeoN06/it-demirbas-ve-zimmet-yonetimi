@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { initDb } = require('./config/db');
+const { securityHeaders, apiLimiter, sanitizeInput } = require('./middleware/security');
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
@@ -9,22 +10,37 @@ const assetRoutes = require('./routes/assetRoutes');
 const assignmentRoutes = require('./routes/assignmentRoutes');
 const userRoutes = require('./routes/userRoutes');
 const statsRoutes = require('./routes/statsRoutes');
+const departmentRoutes = require('./routes/departmentRoutes');
+const roleRoutes = require('./routes/roleRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Initialize SQLite schema
+// Hacker / parmak izi koruması (Express başlığını gizle)
+app.disable('x-powered-by');
+
+// Initialize DB schema
 initDb();
 
-// Middlewares
+// HTTP Güvenlik Başlıkları (Helmet: XSS, Clickjacking, MIME-sniff koruması)
+app.use(securityHeaders);
+
+// DoS ve aşırı istek önleme (Rate Limiting)
+app.use('/api', apiLimiter);
+
+// CORS Yapılandırması
 app.use(cors({
-  origin: '*', // Allow all origins for web + mobile dev
+  origin: '*', // Mobil APK ve web arayüzü için
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// DoS engelleme amacıyla payload limiti güvenli seviyede tutulur
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+
+// Otomatik XSS ve zararlı HTML kod temizleme (Input Sanitization)
+app.use(sanitizeInput);
 
 // Request logging in dev
 app.use((req, res, next) => {
@@ -37,6 +53,7 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     system: 'IT Demirbaş ve Zimmet Yönetim Sistemi API',
+    security: 'Enhanced (Helmet, RateLimit, XSS Filter, Bcrypt, JWT, MSSQL Parametric)',
     timestamp: new Date().toISOString()
   });
 });
@@ -47,13 +64,16 @@ app.use('/api/assets', assetRoutes);
 app.use('/api/assignments', assignmentRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/departments', departmentRoutes);
+app.use('/api/roles', roleRoutes);
 
-// Global Error Handler
+// Güvenli Global Error Handler (Veritabanı yapısını veya hassas sunucu detaylarını dışarı sızdırmaz)
 app.use((err, req, res, next) => {
-  console.error('Unhandled Server Error:', err);
+  console.error('[GÜVENLİK/SUNUCU HATASI]:', err);
+  const isDev = process.env.NODE_ENV !== 'production';
   res.status(500).json({
     success: false,
-    message: err.message || 'Sunucu tarafında beklenmeyen bir hata oluştu.'
+    message: isDev ? (err.message || 'Sunucu hatası') : 'Sunucuda beklenmeyen bir hata oluştu. Güvenlik kaydı oluşturuldu.'
   });
 });
 

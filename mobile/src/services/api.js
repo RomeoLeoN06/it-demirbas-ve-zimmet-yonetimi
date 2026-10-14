@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 
-// Default to localhost for web/iOS, 10.0.2.2 for Android emulator, or LAN IP
-const DEFAULT_HOST = Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000';
+// Default to computer's local Wi-Fi IP for direct physical phone connectivity
+const DEFAULT_HOST = 'http://10.236.158.60:5000';
 
 let authToken = null;
 let currentBaseUrl = `${DEFAULT_HOST}/api`;
@@ -11,7 +11,9 @@ export const setToken = (token) => {
 };
 
 export const setBaseUrl = (url) => {
-  currentBaseUrl = url.endsWith('/api') ? url : `${url}/api`;
+  if (!url) return;
+  const cleanUrl = url.trim().replace(/\/+$/, '');
+  currentBaseUrl = cleanUrl.endsWith('/api') ? cleanUrl : `${cleanUrl}/api`;
 };
 
 export const getBaseUrl = () => currentBaseUrl;
@@ -38,20 +40,65 @@ async function request(endpoint, options = {}) {
 }
 
 export const mobileApi = {
+  // Auth
   login: (credentials) => request('/auth/login', { method: 'POST', body: JSON.stringify(credentials) }),
+  register: (userData) => request('/auth/register', { method: 'POST', body: JSON.stringify(userData) }),
+  googleLogin: (googleData) => request('/auth/google', { method: 'POST', body: JSON.stringify(googleData) }),
+  forgotPassword: (data) => request('/auth/forgot-password', { method: 'POST', body: JSON.stringify(data) }),
   getMe: () => request('/auth/me'),
+  updateProfile: (profileData) => request('/auth/profile', { method: 'PUT', body: JSON.stringify(profileData) }),
+  changePassword: (passwords) => request('/auth/change-password', { method: 'PUT', body: JSON.stringify(passwords) }),
+
+  // Assets
   getAssets: (params = {}) => {
     const qs = new URLSearchParams(params).toString();
     return request(`/assets${qs ? `?${qs}` : ''}`);
   },
   getAssetById: (id) => request(`/assets/${id}`),
+  createAsset: (assetData) => request('/assets', { method: 'POST', body: JSON.stringify(assetData) }),
+  updateAsset: (id, assetData) => request(`/assets/${id}`, { method: 'PUT', body: JSON.stringify(assetData) }),
+  deleteAsset: (id) => request(`/assets/${id}`, { method: 'DELETE' }),
+  reportFault: (id, faultData) => request(`/assets/${id}/report-fault`, { method: 'POST', body: JSON.stringify(faultData) }),
+
+  // Assignments
   assignAsset: (data) => request('/assignments', { method: 'POST', body: JSON.stringify(data) }),
   returnAsset: (data) => request('/assignments/return', { method: 'POST', body: JSON.stringify(data) }),
-  reportFault: (id, faultData) => request(`/assets/${id}/report-fault`, { method: 'POST', body: JSON.stringify(faultData) }),
   getMyAssets: () => request('/assignments/my-assets'),
-  getDashboardStats: () => request('/stats/dashboard'),
+  getAssignmentHistory: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/assignments/history${qs ? `?${qs}` : ''}`);
+  },
+  getSystemAuditLogs: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/assignments/audit-logs${qs ? `?${qs}` : ''}`);
+  },
+
+  // Users
   getUsers: (params = {}) => {
     const qs = new URLSearchParams(params).toString();
     return request(`/users${qs ? `?${qs}` : ''}`);
-  }
+  },
+  getUserById: (id) => request(`/users/${id}`),
+  createUser: (userData) => request('/users', { method: 'POST', body: JSON.stringify(userData) }),
+  updateUser: (id, userData) => request(`/users/${id}`, { method: 'PUT', body: JSON.stringify(userData) }),
+  resetUserPassword: (id, data) => request(`/users/${id}/reset-password`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteUser: (id) => request(`/users/${id}`, { method: 'DELETE' }),
+
+  // Departments
+  getDepartments: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/departments${qs ? `?${qs}` : ''}`);
+  },
+  createDepartment: (data) => request('/departments', { method: 'POST', body: JSON.stringify(data) }),
+  updateDepartment: (id, data) => request(`/departments/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteDepartment: (id) => request(`/departments/${id}`, { method: 'DELETE' }),
+
+  // Roles
+  getRoles: () => request('/roles'),
+  createRole: (data) => request('/roles', { method: 'POST', body: JSON.stringify(data) }),
+  updateRole: (id, data) => request(`/roles/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteRole: (id) => request(`/roles/${id}`, { method: 'DELETE' }),
+
+  // Stats
+  getDashboardStats: () => request('/stats/dashboard')
 };

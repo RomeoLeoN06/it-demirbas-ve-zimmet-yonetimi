@@ -22,7 +22,7 @@ import AssignModal from '../components/AssignModal';
 import ReturnModal from '../components/ReturnModal';
 import FaultReportModal from '../components/FaultReportModal';
 
-export default function Assets() {
+export default function Assets({ initialStatus = '', onFilterChange }) {
   const { isAdmin } = useAuth();
   const toast = useToast();
 
@@ -32,8 +32,16 @@ export default function Assets() {
 
   // Filters
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState(initialStatus || '');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [departmentFilter, setDepartmentFilter] = useState('');
+  const [departmentsList, setDepartmentsList] = useState([]);
+
+  useEffect(() => {
+    if (initialStatus !== undefined) {
+      setStatusFilter(initialStatus);
+    }
+  }, [initialStatus]);
 
   // Modals state
   const [qrModalAsset, setQrModalAsset] = useState(null);
@@ -41,6 +49,10 @@ export default function Assets() {
   const [assignModalAsset, setAssignModalAsset] = useState(null);
   const [returnModalAsset, setReturnModalAsset] = useState(null);
   const [faultModalAsset, setFaultModalAsset] = useState(null);
+
+  useEffect(() => {
+    api.getDepartments().then((res) => setDepartmentsList(res.data || [])).catch(() => {});
+  }, []);
 
   const fetchAssets = useCallback(async (page = 1, limit = pagination.limit) => {
     setLoading(true);
@@ -50,7 +62,8 @@ export default function Assets() {
         limit,
         search,
         status: statusFilter,
-        category: categoryFilter
+        category: categoryFilter,
+        department: departmentFilter
       });
       setAssets(res.data);
       setPagination(res.pagination);
@@ -59,11 +72,11 @@ export default function Assets() {
     } finally {
       setLoading(false);
     }
-  }, [search, statusFilter, categoryFilter, pagination.limit, toast]);
+  }, [search, statusFilter, categoryFilter, departmentFilter, pagination.limit, toast]);
 
   useEffect(() => {
     fetchAssets(1);
-  }, [search, statusFilter, categoryFilter]);
+  }, [search, statusFilter, categoryFilter, departmentFilter]);
 
   const handleDelete = async (asset) => {
     if (!window.confirm(`"${asset.name}" (${asset.asset_code}) demirbaşını silmek istediğinize emin misiniz?`)) {
@@ -83,6 +96,8 @@ export default function Assets() {
     setSearch('');
     setStatusFilter('');
     setCategoryFilter('');
+    setDepartmentFilter('');
+    if (onFilterChange) onFilterChange('');
   };
 
   return (
@@ -125,7 +140,11 @@ export default function Assets() {
             className="form-select"
             style={{ width: 'auto' }}
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => {
+              const val = e.target.value;
+              setStatusFilter(val);
+              if (onFilterChange) onFilterChange(val);
+            }}
           >
             <option value="">Tüm Durumlar</option>
             <option value="depoda">Depoda (Boşta)</option>
@@ -151,7 +170,21 @@ export default function Assets() {
             <option value="Telefon">Telefon</option>
           </select>
 
-          {(search || statusFilter || categoryFilter) && (
+          <select
+            className="form-select"
+            style={{ width: 'auto' }}
+            value={departmentFilter}
+            onChange={(e) => setDepartmentFilter(e.target.value)}
+          >
+            <option value="">Tüm Departmanlar</option>
+            {departmentsList.map((d) => (
+              <option key={d.id} value={d.name}>
+                {d.name}
+              </option>
+            ))}
+          </select>
+
+          {(search || statusFilter || categoryFilter || departmentFilter) && (
             <button className="btn btn-secondary btn-sm" onClick={handleResetFilters} title="Filtreleri Temizle">
               <RotateCcw size={14} />
               <span>Sıfırla</span>
@@ -160,9 +193,9 @@ export default function Assets() {
         </div>
       </div>
 
-      {/* Assets Table */}
+      {/* Assets Table (Desktop / Tablet) */}
       <div className="table-container">
-        <table className="data-table">
+        <table className="data-table desktop-table-view">
           <thead>
             <tr>
               <th>Demirbaş Kodu</th>
@@ -216,7 +249,7 @@ export default function Assets() {
                   <td>
                     {asset.assigned_user_name ? (
                       <div>
-                        <span style={{ fontWeight: 600, color: '#38bdf8' }}>{asset.assigned_user_name}</span>
+                        <span style={{ fontWeight: 700, color: 'var(--primary)' }}>{asset.assigned_user_name}</span>
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                           {asset.assigned_user_department || 'Birim Yok'}
                         </div>
@@ -311,6 +344,158 @@ export default function Assets() {
             )}
           </tbody>
         </table>
+
+        {/* Mobile Cards View (Phones / Narrow Screens) */}
+        <div className="mobile-cards-view">
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '36px 16px', color: 'var(--text-secondary)' }}>
+              Demirbaşlar yükleniyor...
+            </div>
+          ) : assets.length === 0 ? (
+            <div className="card" style={{ textAlign: 'center', padding: '36px 16px', color: 'var(--text-secondary)' }}>
+              Arama kriterlerine uygun demirbaş bulunamadı.
+            </div>
+          ) : (
+            assets.map((asset) => (
+              <div key={asset.id} className="asset-mobile-card">
+                {/* Header: Code, Category, Status */}
+                <div className="mobile-card-header">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <span className="table-asset-code">{asset.asset_code}</span>
+                    <span className="mobile-category-pill">{asset.category}</span>
+                  </div>
+                  <span className={`badge badge-${asset.status}`}>
+                    <span className="badge-dot" />
+                    {asset.status === 'depoda' ? 'Depoda' :
+                     asset.status === 'zimmetli' ? 'Zimmetli' :
+                     asset.status === 'arizali' ? 'Arızalı' :
+                     asset.status === 'bakimda' ? 'Bakımda' : asset.status}
+                  </span>
+                </div>
+
+                {/* Title & Brand/Model */}
+                <div className="mobile-card-title-row">
+                  <h3 className="mobile-card-title">{asset.name}</h3>
+                  <div className="mobile-card-subtitle">
+                    {asset.brand} {asset.model ? `• ${asset.model}` : ''}
+                  </div>
+                </div>
+
+                {/* 2x2 Details Grid: Serial No, Custody, Warranty, ID */}
+                <div className="mobile-card-details-grid">
+                  <div className="mobile-detail-item">
+                    <span className="mobile-detail-label">Seri Numarası</span>
+                    <code className="mobile-serial-code" title={asset.serial_number}>
+                      {asset.serial_number || '—'}
+                    </code>
+                  </div>
+
+                  <div className="mobile-detail-item">
+                    <span className="mobile-detail-label">Zimmet Durumu</span>
+                    {asset.assigned_user_name ? (
+                      <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                        <span style={{ fontWeight: 700, color: 'var(--primary)', fontSize: '0.80rem', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {asset.assigned_user_name}
+                        </span>
+                        {asset.assigned_user_department && (
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {asset.assigned_user_department}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.76rem' }}>— Boşta (Depoda) —</span>
+                    )}
+                  </div>
+
+                  <div className="mobile-detail-item">
+                    <span className="mobile-detail-label">Garanti Bitiş</span>
+                    <span
+                      style={{
+                        fontSize: '0.76rem',
+                        fontWeight: 600,
+                        color: asset.warranty_end_date && new Date(asset.warranty_end_date) < new Date() ? '#f87171' : 'inherit'
+                      }}
+                    >
+                      {asset.warranty_end_date || '—'}
+                    </span>
+                  </div>
+
+                  <div className="mobile-detail-item">
+                    <span className="mobile-detail-label">Kayıt No</span>
+                    <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                      ID #{asset.id}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="mobile-card-actions">
+                  <button
+                    className="btn btn-secondary btn-sm mobile-action-btn"
+                    onClick={() => setQrModalAsset(asset)}
+                    title="QR Kodu ve Etiketi Görüntüle"
+                  >
+                    <QrCode size={13} color="#38bdf8" />
+                    <span>QR</span>
+                  </button>
+
+                  {isAdmin && asset.status !== 'zimmetli' && asset.status !== 'arizali' && asset.status !== 'hurda' && (
+                    <button
+                      className="btn btn-secondary btn-sm mobile-action-btn"
+                      onClick={() => setAssignModalAsset(asset)}
+                      title="Personele Zimmetle"
+                    >
+                      <UserCheck size={13} color="#10b981" />
+                      <span>Zimmetle</span>
+                    </button>
+                  )}
+
+                  {isAdmin && asset.status === 'zimmetli' && (
+                    <button
+                      className="btn btn-secondary btn-sm mobile-action-btn"
+                      onClick={() => setReturnModalAsset(asset)}
+                      title="Zimmetten Düş (İade Al)"
+                    >
+                      <CheckCircle size={13} color="#f59e0b" />
+                      <span>İade Al</span>
+                    </button>
+                  )}
+
+                  <button
+                    className="btn btn-secondary btn-sm mobile-action-btn"
+                    onClick={() => setFaultModalAsset(asset)}
+                    title="Arıza Durumu Bildir"
+                  >
+                    <AlertTriangle size={13} color="#f87171" />
+                    <span>Arıza</span>
+                  </button>
+
+                  {isAdmin && (
+                    <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+                      <button
+                        className="btn-icon"
+                        style={{ width: 30, height: 30 }}
+                        onClick={() => setAssetModalState({ isOpen: true, asset })}
+                        title="Düzenle"
+                      >
+                        <Edit2 size={13} />
+                      </button>
+                      <button
+                        className="btn-icon"
+                        style={{ width: 30, height: 30 }}
+                        onClick={() => handleDelete(asset)}
+                        title="Sil"
+                      >
+                        <Trash2 size={13} color="#ef4444" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
 
         {/* Pagination */}
         <Pagination

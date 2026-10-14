@@ -63,16 +63,16 @@ export default function Assignments() {
   return (
     <div>
       <div style={{ marginBottom: 16 }}>
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff' }}>
+        <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)' }}>
           Zimmet ve Sistem Hareket Logları
         </h2>
-        <p style={{ fontSize: '0.84rem', color: '#94a3b8' }}>
+        <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
           Tüm zimmet atamaları, iadeler, arıza kayıtları ve kurumsal denetim logları
         </p>
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+      <div className="assignments-tab-bar" style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
         <button
           className={`btn ${activeTab === 'assignments' ? 'btn-primary' : 'btn-secondary'} btn-sm`}
           onClick={() => setActiveTab('assignments')}
@@ -86,7 +86,7 @@ export default function Assignments() {
           onClick={() => setActiveTab('audit')}
         >
           <Activity size={15} />
-          <span>Sistem Denetim & İşlem Logları (Audit Trail)</span>
+          <span>Sistem Denetim Logları (Audit)</span>
         </button>
       </div>
 
@@ -113,7 +113,7 @@ export default function Assignments() {
           </div>
 
           <div className="table-container">
-            <table className="data-table">
+            <table className="data-table desktop-table-view">
               <thead>
                 <tr>
                   <th>Durum</th>
@@ -157,28 +157,28 @@ export default function Assignments() {
                       </td>
                       <td>
                         <span className="table-asset-code">{item.asset_code}</span>
-                        <div style={{ fontWeight: 700, marginTop: 2, color: '#ffffff' }}>{item.asset_name}</div>
-                        <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{item.asset_category}</div>
+                        <div style={{ fontWeight: 700, marginTop: 2, color: 'var(--text-primary)' }}>{item.asset_name}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{item.asset_category}</div>
                       </td>
                       <td>
-                        <strong style={{ color: '#38bdf8' }}>{item.user_name}</strong>
-                        <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{item.user_email}</div>
+                        <strong style={{ color: 'var(--primary)', fontWeight: 700 }}>{item.user_name}</strong>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{item.user_email}</div>
                       </td>
-                      <td>{item.user_department || '—'}</td>
-                      <td style={{ fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
+                      <td style={{ color: 'var(--text-secondary)' }}>{item.user_department || '—'}</td>
+                      <td style={{ fontSize: '0.82rem', whiteSpace: 'nowrap', color: 'var(--text-secondary)' }}>
                         {item.assigned_date ? new Date(item.assigned_date).toLocaleDateString('tr-TR') : '—'}
                       </td>
                       <td style={{ fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
                         {item.return_date ? (
-                          <span style={{ color: '#60a5fa' }}>{new Date(item.return_date).toLocaleDateString('tr-TR')}</span>
+                          <span style={{ color: '#2563eb', fontWeight: 600 }}>{new Date(item.return_date).toLocaleDateString('tr-TR')}</span>
                         ) : (
-                          <span style={{ color: '#34d399', fontWeight: 600 }}>Halen Kullanımda</span>
+                          <span style={{ color: '#059669', fontWeight: 600 }}>Halen Kullanımda</span>
                         )}
                       </td>
-                      <td style={{ fontSize: '0.82rem' }}>
+                      <td style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
                         {item.assigned_by_name || 'Sistem Yöneticisi'}
                       </td>
-                      <td style={{ fontSize: '0.82rem', color: '#cbd5e1', maxWidth: 220 }}>
+                      <td style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', maxWidth: 220 }}>
                         {item.return_notes ? (
                           <div>
                             <strong style={{ color: '#60a5fa' }}>İade:</strong> {item.return_notes}
@@ -192,6 +192,99 @@ export default function Assignments() {
                 )}
               </tbody>
             </table>
+
+            {/* Mobile Cards View for Assignments History */}
+            <div className="mobile-cards-view">
+              {historyLoading ? (
+                <div style={{ textAlign: 'center', padding: '36px 16px', color: '#94a3b8' }}>
+                  Zimmet logları yükleniyor...
+                </div>
+              ) : history.length === 0 ? (
+                <div className="card" style={{ textAlign: 'center', padding: '36px 16px', color: '#94a3b8' }}>
+                  Kayıtlı zimmet hareketi bulunamadı.
+                </div>
+              ) : (
+                history.map((item) => (
+                  <div key={item.id} className="asset-mobile-card">
+                    {/* Header: Code, Category, Status */}
+                    <div className="mobile-card-header">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <span className="table-asset-code">{item.asset_code}</span>
+                        <span className="mobile-category-pill">{item.asset_category}</span>
+                      </div>
+                      {item.status === 'aktif' ? (
+                        <span className="badge badge-zimmetli">
+                          <span className="badge-dot" />
+                          Aktif Zimmet
+                        </span>
+                      ) : (
+                        <span className="badge badge-depoda">
+                          <span className="badge-dot" />
+                          İade Edildi
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Title */}
+                    <div className="mobile-card-title-row">
+                      <h3 className="mobile-card-title">{item.asset_name}</h3>
+                    </div>
+
+                    {/* Details Grid */}
+                    <div className="mobile-card-details-grid">
+                      <div className="mobile-detail-item">
+                        <span className="mobile-detail-label">Zimmetli Personel</span>
+                        <strong style={{ color: 'var(--primary)', fontSize: '0.80rem' }}>{item.user_name}</strong>
+                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {item.user_email}
+                        </div>
+                      </div>
+
+                      <div className="mobile-detail-item">
+                        <span className="mobile-detail-label">Departman / Birim</span>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                          {item.user_department || '—'}
+                        </span>
+                      </div>
+
+                      <div className="mobile-detail-item">
+                        <span className="mobile-detail-label">Teslim Tarihi</span>
+                        <span style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                          {item.assigned_date ? new Date(item.assigned_date).toLocaleDateString('tr-TR') : '—'}
+                        </span>
+                      </div>
+
+                      <div className="mobile-detail-item">
+                        <span className="mobile-detail-label">İade Durumu</span>
+                        {item.return_date ? (
+                          <span style={{ color: '#2563eb', fontWeight: 600, fontSize: '0.76rem' }}>
+                            {new Date(item.return_date).toLocaleDateString('tr-TR')} (İade)
+                          </span>
+                        ) : (
+                          <span style={{ color: '#059669', fontWeight: 600, fontSize: '0.76rem' }}>
+                            Halen Kullanımda
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Footer Info */}
+                    <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: 3, paddingTop: 6, borderTop: '1px solid var(--border-subtle)' }}>
+                      <div>
+                        <span style={{ fontWeight: 700, color: 'var(--text-secondary)' }}>İşlemi Yapan: </span>
+                        {item.assigned_by_name || 'Sistem Yöneticisi'}
+                      </div>
+                      {(item.return_notes || item.handover_notes) && (
+                        <div>
+                          <span style={{ fontWeight: 700, color: 'var(--text-secondary)' }}>Not: </span>
+                          {item.return_notes ? `İade Notu: ${item.return_notes}` : item.handover_notes}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
 
             <Pagination
               pagination={historyPagination}
@@ -247,7 +340,7 @@ export default function Assignments() {
           </div>
 
           <div className="table-container">
-            <table className="data-table">
+            <table className="data-table desktop-table-view">
               <thead>
                 <tr>
                   <th>İşlem Tipi</th>
@@ -298,24 +391,24 @@ export default function Assignments() {
                           {log.action}
                         </span>
                       </td>
-                      <td style={{ color: '#ffffff', fontWeight: 500 }}>{log.details}</td>
+                      <td style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{log.details}</td>
                       <td>
                         {log.asset_code ? (
                           <div>
                             <span className="table-asset-code">{log.asset_code}</span>
-                            <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: 2 }}>{log.asset_name}</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 2 }}>{log.asset_name}</div>
                           </div>
                         ) : (
-                          <span style={{ color: '#64748b' }}>—</span>
+                          <span style={{ color: 'var(--text-muted)' }}>—</span>
                         )}
                       </td>
                       <td>
-                        <strong style={{ color: '#cbd5e1' }}>{log.user_name || 'Sistem'}</strong>
+                        <strong style={{ color: 'var(--text-primary)' }}>{log.user_name || 'Sistem'}</strong>
                         {log.user_email && (
-                          <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{log.user_email}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{log.user_email}</div>
                         )}
                       </td>
-                      <td style={{ color: '#94a3b8', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                      <td style={{ color: 'var(--text-muted)', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
                         {new Date(log.created_at).toLocaleString('tr-TR')}
                       </td>
                     </tr>
@@ -323,6 +416,75 @@ export default function Assignments() {
                 )}
               </tbody>
             </table>
+
+            {/* Mobile Cards for Audit Logs */}
+            <div className="mobile-cards-view">
+              {auditLoading ? (
+                <div style={{ textAlign: 'center', padding: '36px 16px', color: '#94a3b8' }}>
+                  Denetim logları yükleniyor...
+                </div>
+              ) : auditLogs.length === 0 ? (
+                <div className="card" style={{ textAlign: 'center', padding: '36px 16px', color: '#94a3b8' }}>
+                  Kayıtlı sistem logu bulunamadı.
+                </div>
+              ) : (
+                auditLogs.map((log) => (
+                  <div key={log.id} className="asset-mobile-card">
+                    {/* Header: Action Type & Date */}
+                    <div className="mobile-card-header">
+                      <span
+                        style={{
+                          fontSize: '0.70rem',
+                          fontWeight: 800,
+                          textTransform: 'uppercase',
+                          padding: '3px 8px',
+                          borderRadius: 6,
+                          background:
+                            log.action === 'zimmetlendi' ? 'rgba(16, 185, 129, 0.2)' :
+                            log.action === 'iade_edildi' ? 'rgba(59, 130, 246, 0.2)' :
+                            log.action === 'ariza_bildirildi' ? 'rgba(239, 68, 68, 0.2)' :
+                            log.action === 'olusturuldu' ? 'rgba(14, 165, 233, 0.2)' :
+                            'rgba(148, 163, 184, 0.15)',
+                          color:
+                            log.action === 'zimmetlendi' ? '#34d399' :
+                            log.action === 'iade_edildi' ? '#60a5fa' :
+                            log.action === 'ariza_bildirildi' ? '#f87171' :
+                            log.action === 'olusturuldu' ? '#38bdf8' :
+                            '#cbd5e1'
+                        }}
+                      >
+                        {log.action}
+                      </span>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                        {new Date(log.created_at).toLocaleString('tr-TR')}
+                      </span>
+                    </div>
+
+                    {/* Details */}
+                    <div style={{ fontSize: '0.86rem', color: 'var(--text-primary)', fontWeight: 600, lineHeight: 1.35 }}>
+                      {log.details}
+                    </div>
+
+                    {/* Footer: Device & User info */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6, paddingTop: 6, borderTop: '1px solid var(--border-subtle)', fontSize: '0.74rem' }}>
+                      <div>
+                        {log.asset_code ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <span className="table-asset-code">{log.asset_code}</span>
+                            <span style={{ color: 'var(--text-secondary)' }}>{log.asset_name}</span>
+                          </span>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)' }}>—</span>
+                        )}
+                      </div>
+                      <div style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
+                        {log.user_name || 'Sistem'}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
 
             <Pagination
               pagination={auditPagination}

@@ -9,7 +9,12 @@ async function assignAsset(req, res) {
       return res.status(400).json({ success: false, message: 'Cihaz ve personel seçimi zorunludur.' });
     }
 
-    const asset = db.prepare('SELECT * FROM assets WHERE id = ?').get(asset_id);
+    const trimmedAssetId = asset_id ? asset_id.toString().trim() : '';
+    const isAssetNumeric = /^\d+$/.test(trimmedAssetId);
+    const asset = await db.prepare(
+      isAssetNumeric ? 'SELECT * FROM assets WHERE id = ? OR asset_code = ?' : 'SELECT * FROM assets WHERE asset_code = ?'
+    ).get(isAssetNumeric ? parseInt(trimmedAssetId, 10) : trimmedAssetId, ...(isAssetNumeric ? [trimmedAssetId] : []));
+
     if (!asset) {
       return res.status(404).json({ success: false, message: 'Demirbaş bulunamadı.' });
     }
@@ -28,7 +33,7 @@ async function assignAsset(req, res) {
       });
     }
 
-    const user = db.prepare('SELECT id, full_name, email, department FROM users WHERE id = ?').get(user_id);
+    const user = await db.prepare('SELECT id, full_name, email, department FROM users WHERE id = ?').get(user_id);
     if (!user) {
       return res.status(404).json({ success: false, message: 'Seçilen personel bulunamadı.' });
     }
@@ -40,8 +45,8 @@ async function assignAsset(req, res) {
       INSERT INTO assignments (asset_id, user_id, assigned_by_user_id, assigned_date, status, handover_notes)
       VALUES (?, ?, ?, ?, 'aktif', ?)
     `);
-    const assignResult = insertStmt.run(
-      asset_id,
+    const assignResult = await insertStmt.run(
+      asset.id,
       user_id,
       req.user.id,
       assignDate,
@@ -49,16 +54,16 @@ async function assignAsset(req, res) {
     );
 
     // Update asset
-    db.prepare(`
+    await db.prepare(`
       UPDATE assets
       SET status = 'zimmetli', assigned_to_user_id = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).run(user_id, asset_id);
+    `).run(user_id, asset.id);
 
     // Audit log
-    db.prepare('INSERT INTO audit_logs (asset_id, user_id, action, details) VALUES (?, ?, ?, ?)')
+    await db.prepare('INSERT INTO audit_logs (asset_id, user_id, action, details) VALUES (?, ?, ?, ?)')
       .run(
-        asset_id,
+        asset.id,
         req.user.id,
         'zimmetlendi',
         `Demirbaş "${asset.name}" (${asset.asset_code}) -> Personele teslim edildi: ${user.full_name} (${user.department})`
@@ -84,7 +89,12 @@ async function returnAsset(req, res) {
       return res.status(400).json({ success: false, message: 'Cihaz ID zorunludur.' });
     }
 
-    const asset = db.prepare('SELECT * FROM assets WHERE id = ?').get(asset_id);
+    const trimmedAssetId = asset_id ? asset_id.toString().trim() : '';
+    const isAssetNumeric = /^\d+$/.test(trimmedAssetId);
+    const asset = await db.prepare(
+      isAssetNumeric ? 'SELECT * FROM assets WHERE id = ? OR asset_code = ?' : 'SELECT * FROM assets WHERE asset_code = ?'
+    ).get(isAssetNumeric ? parseInt(trimmedAssetId, 10) : trimmedAssetId, ...(isAssetNumeric ? [trimmedAssetId] : []));
+
     if (!asset) {
       return res.status(404).json({ success: false, message: 'Demirbaş bulunamadı.' });
     }
@@ -94,17 +104,17 @@ async function returnAsset(req, res) {
     }
 
     // Find active assignment
-    const activeAssignment = db.prepare(`
+    const activeAssignment = await db.prepare(`
       SELECT * FROM assignments
       WHERE asset_id = ? AND status = 'aktif'
       ORDER BY assigned_date DESC
       LIMIT 1
-    `).get(asset_id);
+    `).get(asset.id);
 
     const now = new Date().toISOString();
 
     if (activeAssignment) {
-      db.prepare(`
+      await db.prepare(`
         UPDATE assignments
         SET status = 'iade_edildi', return_date = ?, return_notes = ?
         WHERE id = ?
@@ -114,16 +124,16 @@ async function returnAsset(req, res) {
     // Set asset status (e.g. 'depoda', 'arizali', 'bakimda')
     const finalStatus = ['depoda', 'arizali', 'bakimda'].includes(return_condition) ? return_condition : 'depoda';
 
-    db.prepare(`
+    await db.prepare(`
       UPDATE assets
       SET status = ?, assigned_to_user_id = NULL, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).run(finalStatus, asset_id);
+    `).run(finalStatus, asset.id);
 
     // Audit log
-    db.prepare('INSERT INTO audit_logs (asset_id, user_id, action, details) VALUES (?, ?, ?, ?)')
+    await db.prepare('INSERT INTO audit_logs (asset_id, user_id, action, details) VALUES (?, ?, ?, ?)')
       .run(
-        asset_id,
+        asset.id,
         req.user.id,
         'iade_edildi',
         `Demirbaş "${asset.name}" (${asset.asset_code}) zimmetten düşüldü ve durumu "${finalStatus}" yapıldı.`
@@ -142,7 +152,7 @@ async function returnAsset(req, res) {
 // Get logged-in user's personal assigned assets (Kişisel Zimmet Ekranı)
 async function getMyAssets(req, res) {
   try {
-    const assets = db.prepare(`
+    const assets = await db.prepare(`
       SELECT 
         a.id, a.asset_code, a.name, a.category, a.brand, a.model,
         a.serial_number, a.purchase_date, a.warranty_end_date, a.status,
@@ -189,7 +199,8 @@ async function getAssignmentHistory(req, res) {
       LEFT JOIN users admin ON asg.assigned_by_user_id = admin.id
       ${whereClause}
     `;
-    const totalCount = db.prepare(countSql).get(...params).total;
+    const countRes = await db.prepare(countSql).get(...params);
+    const totalCount = countRes ? countRes.total : 0;
 
     const sql = `
       SELECT 
@@ -206,7 +217,7 @@ async function getAssignmentHistory(req, res) {
       LIMIT ? OFFSET ?
     `;
 
-    const history = db.prepare(sql).all(...params, parseInt(limit), offset);
+    const history = await db.prepare(sql).all(...params, parseInt(limit), offset);
 
     return res.json({
       success: true,
@@ -253,7 +264,8 @@ async function getSystemAuditLogs(req, res) {
       LEFT JOIN assets a ON l.asset_id = a.id
       ${whereSql}
     `;
-    const totalCount = db.prepare(countSql).get(...params).total;
+    const countRes = await db.prepare(countSql).get(...params);
+    const totalCount = countRes ? countRes.total : 0;
 
     const sql = `
       SELECT 
@@ -268,7 +280,7 @@ async function getSystemAuditLogs(req, res) {
       LIMIT ? OFFSET ?
     `;
 
-    const logs = db.prepare(sql).all(...params, parseInt(limit), offset);
+    const logs = await db.prepare(sql).all(...params, parseInt(limit), offset);
 
     return res.json({
       success: true,

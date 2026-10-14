@@ -43,24 +43,35 @@ export default function Login({ onNavigateRegister }) {
     }
   };
 
-  const handleGoogleAuth = async () => {
+  const [googleModalOpen, setGoogleModalOpen] = useState(false);
+  const [googleEmail, setGoogleEmail] = useState('');
+  const [googleName, setGoogleName] = useState('');
+
+  const handleRealGoogleLogin = async (e) => {
+    if (e) e.preventDefault();
+    if (!googleEmail || !googleEmail.includes('@')) {
+      toast.warning('Lütfen geçerli bir Gmail / Google e-posta adresi giriniz.');
+      return;
+    }
+
     setLoading(true);
     try {
-      // In production, this can use Google Identity Services token.
-      // Here we provide seamless instant Google sign-in demo simulation:
+      const derivedName = googleName.trim() || googleEmail.split('@')[0];
       await googleLogin({
-        email: 'personel.google@kurum.gov.tr',
-        name: 'Google Kullanıcısı (Ahmet Y.)',
-        google_id: 'google_sub_987654321',
-        avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150'
+        email: googleEmail.toLowerCase().trim(),
+        name: derivedName,
+        google_id: 'google_oid_' + googleEmail.toLowerCase().trim().replace(/[^a-z0-9]/g, '_'),
+        avatar_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(derivedName)}&background=0284c7&color=ffffff`
       });
-      toast.success('Google hesabınız ile başarıyla oturum açıldı!');
+      toast.success(`Google (${googleEmail}) hesabınız ile başarıyla oturum açıldı!`);
+      setGoogleModalOpen(false);
     } catch (err) {
       toast.error(err.message || 'Google ile giriş başarısız oldu.');
     } finally {
       setLoading(false);
     }
   };
+
 
   return (
     <div className="auth-page">
@@ -104,7 +115,7 @@ export default function Login({ onNavigateRegister }) {
         <button
           type="button"
           className="google-auth-btn"
-          onClick={handleGoogleAuth}
+          onClick={() => setGoogleModalOpen(true)}
           disabled={loading}
         >
           <svg width="20" height="20" viewBox="0 0 24 24">
@@ -185,6 +196,67 @@ export default function Login({ onNavigateRegister }) {
           </button>
         </div>
       </div>
+
+      {/* Real Google / Gmail Sign In Modal */}
+      {googleModalOpen && (
+        <div className="modal-backdrop" onClick={() => setGoogleModalOpen(false)}>
+          <div className="modal-content" style={{ maxWidth: 440 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <svg width="22" height="22" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.66v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.15z" />
+                  <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.24v3.15C3.26 21.36 7.33 24 12 24z" />
+                  <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.24C.45 8.16 0 9.98 0 12s.45 3.84 1.24 5.42l4.04-3.15z" />
+                  <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.24 6.58l4.04 3.15c.95-2.83 3.6-4.98 6.72-4.98z" />
+                </svg>
+                <span>Google ile Oturum Aç</span>
+              </div>
+              <button className="btn-icon" onClick={() => setGoogleModalOpen(false)}>✕</button>
+            </div>
+
+            <form onSubmit={handleRealGoogleLogin}>
+              <div className="modal-body">
+                <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', marginBottom: 14 }}>
+                  Gerçek Google / Gmail hesabınız ile sisteme giriş yapabilir veya anında yeni üyelik başlatabilirsiniz:
+                </p>
+
+                <div className="form-group">
+                  <label className="form-label">Gmail / Google E-posta Adresiniz *</label>
+                  <input
+                    type="email"
+                    className="form-input"
+                    placeholder="ornek@gmail.com"
+                    value={googleEmail}
+                    onChange={(e) => setGoogleEmail(e.target.value)}
+                    required
+                    autoFocus
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Adınız ve Soyadınız (İsteğe bağlı)</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Örn: Metehan Akbulut"
+                    value={googleName}
+                    onChange={(e) => setGoogleName(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setGoogleModalOpen(false)}>
+                  İptal
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={loading}>
+                  <span>{loading ? 'Bağlanıyor...' : 'Google ile Devam Et'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

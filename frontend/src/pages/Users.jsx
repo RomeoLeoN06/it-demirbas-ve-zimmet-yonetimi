@@ -27,10 +27,23 @@ export default function Users() {
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 });
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
+  const [rolesList, setRolesList] = useState([]);
 
   // Modals
   const [userModalState, setUserModalState] = useState({ isOpen: false, user: null });
   const [resetModalUser, setResetModalUser] = useState(null);
+
+  useEffect(() => {
+    api.getRoles().then((res) => setRolesList(res.data || [])).catch(() => {});
+  }, []);
+
+  const getRoleDisplayName = (roleName) => {
+    const match = rolesList.find((r) => r.name === roleName);
+    if (match) return match.display_name;
+    if (roleName === 'admin') return 'Sistem Yöneticisi';
+    if (roleName === 'personnel') return 'Standart Personel';
+    return roleName;
+  };
 
   const fetchUsers = async (page = 1, limit = pagination.limit) => {
     setLoading(true);
@@ -107,14 +120,17 @@ export default function Users() {
             onChange={(e) => setRoleFilter(e.target.value)}
           >
             <option value="">Tüm Roller</option>
-            <option value="admin">Sistem Yöneticisi (Admin)</option>
-            <option value="personnel">Standart Personel</option>
+            {rolesList.map((r) => (
+              <option key={r.id} value={r.name}>
+                {r.display_name}
+              </option>
+            ))}
           </select>
         </div>
       </div>
 
       <div className="table-container">
-        <table className="data-table">
+        <table className="data-table desktop-table-view">
           <thead>
             <tr>
               <th>Kullanıcı</th>
@@ -150,43 +166,34 @@ export default function Users() {
                         style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }}
                       />
                       <div>
-                        <strong style={{ fontSize: '0.9rem' }}>{u.full_name}</strong>
+                        <strong style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>{u.full_name}</strong>
                         <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{u.email}</div>
                       </div>
                     </div>
                   </td>
                   <td>
                     <span className={`role-badge ${u.role === 'admin' ? 'admin' : 'personnel'}`}>
-                      {u.role === 'admin' ? 'Sistem Yöneticisi' : 'Standart Personel'}
+                      {getRoleDisplayName(u.role)}
                     </span>
                   </td>
-                  <td>{u.department || '—'}</td>
-                  <td style={{ fontSize: '0.82rem' }}>{u.phone || '—'}</td>
+                  <td style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>{u.department || '—'}</td>
+                  <td style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>{u.phone || '—'}</td>
                   <td>
                     {u.assigned_asset_count > 0 ? (
-                      <span
-                        style={{
-                          background: 'rgba(56, 189, 248, 0.15)',
-                          color: '#38bdf8',
-                          padding: '3px 9px',
-                          borderRadius: 12,
-                          fontWeight: 600,
-                          fontSize: '0.78rem'
-                        }}
-                      >
+                      <span className="badge-device-count positive">
                         {u.assigned_asset_count} Cihaz
                       </span>
                     ) : (
-                      <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>0 Cihaz</span>
+                      <span className="badge-device-count zero">0 Cihaz</span>
                     )}
                   </td>
                   <td>
                     {u.is_active ? (
-                      <span style={{ color: '#10b981', display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.8rem' }}>
+                      <span className="status-indicator active">
                         <CheckCircle size={14} /> Aktif
                       </span>
                     ) : (
-                      <span style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.8rem' }}>
+                      <span className="status-indicator inactive">
                         <XCircle size={14} /> Pasif
                       </span>
                     )}
@@ -195,17 +202,17 @@ export default function Users() {
                     <div style={{ display: 'inline-flex', gap: 6 }}>
                       {/* Password Reset */}
                       <button
-                        className="btn-icon"
+                        className="btn-icon btn-action-key"
                         style={{ width: 32, height: 32 }}
                         onClick={() => setResetModalUser(u)}
                         title="Şifresini Sıfırla"
                       >
-                        <KeyRound size={15} color="#f59e0b" />
+                        <KeyRound size={15} />
                       </button>
 
                       {/* Edit */}
                       <button
-                        className="btn-icon"
+                        className="btn-icon btn-action-edit"
                         style={{ width: 32, height: 32 }}
                         onClick={() => setUserModalState({ isOpen: true, user: u })}
                         title="Bilgilerini Düzenle"
@@ -216,12 +223,12 @@ export default function Users() {
                       {/* Delete */}
                       {u.id !== currentUser.id && (
                         <button
-                          className="btn-icon"
+                          className="btn-icon btn-action-delete"
                           style={{ width: 32, height: 32 }}
                           onClick={() => handleDelete(u)}
                           title="Kullanıcıyı Sil"
                         >
-                          <Trash2 size={15} color="#ef4444" />
+                          <Trash2 size={15} />
                         </button>
                       )}
                     </div>
@@ -231,6 +238,101 @@ export default function Users() {
             )}
           </tbody>
         </table>
+
+        {/* Mobile Cards for Users */}
+        <div className="mobile-cards-view">
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '36px 16px', color: 'var(--text-secondary)' }}>
+              Kullanıcılar yükleniyor...
+            </div>
+          ) : users.length === 0 ? (
+            <div className="card" style={{ textAlign: 'center', padding: '36px 16px', color: 'var(--text-secondary)' }}>
+              Kayıtlı kullanıcı bulunamadı.
+            </div>
+          ) : (
+            users.map((u) => (
+              <div key={u.id} className="asset-mobile-card">
+                <div className="mobile-card-header">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <img
+                      src={u.avatar_url || 'https://ui-avatars.com/api/?name=User'}
+                      alt={u.full_name}
+                      style={{ width: 34, height: 34, borderRadius: '50%', objectFit: 'cover' }}
+                    />
+                    <div>
+                      <strong style={{ fontSize: '0.90rem', color: 'var(--text-primary)', display: 'block' }}>{u.full_name}</strong>
+                      <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{u.email}</div>
+                    </div>
+                  </div>
+                  <span className={`role-badge ${u.role === 'admin' ? 'admin' : 'personnel'}`}>
+                    {getRoleDisplayName(u.role)}
+                  </span>
+                </div>
+
+                <div className="mobile-card-details-grid">
+                  <div className="mobile-detail-item">
+                    <span className="mobile-detail-label">Departman</span>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>{u.department || '—'}</span>
+                  </div>
+                  <div className="mobile-detail-item">
+                    <span className="mobile-detail-label">Telefon</span>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>{u.phone || '—'}</span>
+                  </div>
+                  <div className="mobile-detail-item">
+                    <span className="mobile-detail-label">Zimmetli Cihaz</span>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 700, color: u.assigned_asset_count > 0 ? '#38bdf8' : 'inherit' }}>
+                      {u.assigned_asset_count || 0} Cihaz
+                    </span>
+                  </div>
+                  <div className="mobile-detail-item">
+                    <span className="mobile-detail-label">Hesap Durumu</span>
+                    {u.is_active ? (
+                      <span className="status-indicator active" style={{ fontSize: '0.76rem' }}>
+                        <CheckCircle size={12} /> Aktif
+                      </span>
+                    ) : (
+                      <span className="status-indicator inactive" style={{ fontSize: '0.76rem' }}>
+                        <XCircle size={12} /> Pasif
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mobile-card-actions">
+                  <button
+                    className="btn btn-secondary btn-sm mobile-action-btn"
+                    onClick={() => setResetModalUser(u)}
+                    title="Şifresini Sıfırla"
+                  >
+                    <KeyRound size={13} color="#f59e0b" />
+                    <span>Şifre Sıfırla</span>
+                  </button>
+
+                  <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+                    <button
+                      className="btn-icon btn-action-edit"
+                      style={{ width: 30, height: 30 }}
+                      onClick={() => setUserModalState({ isOpen: true, user: u })}
+                      title="Bilgilerini Düzenle"
+                    >
+                      <Edit2 size={13} />
+                    </button>
+                    {u.id !== currentUser.id && (
+                      <button
+                        className="btn-icon btn-action-delete"
+                        style={{ width: 30, height: 30 }}
+                        onClick={() => handleDelete(u)}
+                        title="Kullanıcıyı Sil"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
 
         <Pagination
           pagination={pagination}

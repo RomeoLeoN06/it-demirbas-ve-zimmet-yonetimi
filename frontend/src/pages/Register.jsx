@@ -44,22 +44,7 @@ export default function Register({ onNavigateLogin }) {
     }
   };
 
-  const handleGoogleAuth = async () => {
-    setLoading(true);
-    try {
-      await googleLogin({
-        email: 'yeni.personel@kurum.gov.tr',
-        name: 'Yeni Google Personeli',
-        google_id: 'google_reg_' + Date.now(),
-        avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'
-      });
-      toast.success('Google hesabınız ile başarıyla kayıt olundu!');
-    } catch (err) {
-      toast.error(err.message || 'Google ile işlem başarısız oldu.');
-    } finally {
-      setLoading(false);
-    }
-  };
+
 
   return (
     <div className="auth-page">

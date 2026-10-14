@@ -22,7 +22,9 @@ export default function Navbar({
       case 'assignments':
         return 'Zimmet Yönetimi & Hareket Geçmişi';
       case 'users':
-        return 'Kullanıcı ve Rol Yönetimi';
+        return 'Kullanıcı Yönetimi';
+      case 'departments':
+        return 'Departman, Birim & Rol Yönetimi';
       case 'my-assets':
         return 'Kişisel Zimmetli Cihazlarım';
       case 'profile':
@@ -38,8 +40,12 @@ export default function Navbar({
         {/* Mobile menu toggle */}
         <button
           className="mobile-toggle"
-          onClick={() => setMobileOpen((prev) => !prev)}
-          title="Menüyü Aç"
+          onClick={() => {
+            if (setIsCollapsed) {
+              setIsCollapsed((prev) => !prev);
+            }
+          }}
+          title={isCollapsed ? 'Menüyü Genişlet' : 'Menüyü Daralt (İkon Modu)'}
         >
           <Menu size={22} />
         </button>
@@ -63,16 +69,16 @@ export default function Navbar({
 
       <div className="navbar-right">
         <button
-          className="btn btn-secondary btn-sm"
+          className="btn btn-secondary btn-sm navbar-qr-btn"
           onClick={onOpenScanner}
           title="QR Kod / Barkod ile Cihaz Bul"
         >
           <QrCode size={16} color="#c084fc" />
-          <span>QR Tara</span>
+          <span className="navbar-btn-text">QR Tara</span>
         </button>
 
         <button
-          className="btn-icon"
+          className="btn-icon theme-toggle-btn"
           onClick={toggleTheme}
           title={theme === 'dark' ? 'Açık Temaya Geç' : 'Karanlık Temaya Geç'}
         >
@@ -80,19 +86,11 @@ export default function Navbar({
         </button>
 
         <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '5px 12px',
-            background: 'var(--bg-card)',
-            borderRadius: 'var(--radius-md)',
-            border: '1px solid var(--border-subtle)',
-            fontSize: '0.82rem'
-          }}
+          className="navbar-dept-badge"
+          title={`Departman: ${user?.department || 'Genel'}`}
         >
           <ShieldCheck size={16} color="#38bdf8" />
-          <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
+          <span className="dept-badge-text">
             {user?.department || 'Genel'}
           </span>
         </div>

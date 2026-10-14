@@ -21,13 +21,64 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const register = async (userData) => {
+    setLoading(true);
+    try {
+      const res = await mobileApi.register(userData);
+      if (res.token) {
+        setToken(res.token);
+        setUser(res.user);
+      }
+      return res;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const googleLogin = async (googleData) => {
+    setLoading(true);
+    try {
+      const res = await mobileApi.googleLogin(googleData);
+      if (res.token) {
+        setToken(res.token);
+        setUser(res.user);
+      }
+      return res;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const refreshMe = async () => {
+    try {
+      const res = await mobileApi.getMe();
+      if (res.user) {
+        setUser(res.user);
+      }
+      return res;
+    } catch (e) {
+      console.warn('Failed to refresh user profile:', e);
+    }
+  };
+
   const logout = () => {
     setToken(null);
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, isAdmin: user?.role === 'admin' }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        login,
+        register,
+        googleLogin,
+        refreshMe,
+        logout,
+        isAdmin: user?.role === 'admin'
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

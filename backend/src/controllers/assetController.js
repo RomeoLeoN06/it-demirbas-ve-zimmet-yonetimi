@@ -18,16 +18,17 @@ async function generateAssetQrCode(assetCode, name, serialNumber, category) {
 }
 
 // Generate unique asset code
-function generateUniqueCode() {
-  const countRow = db.prepare('SELECT COUNT(*) as count FROM assets').get();
-  const nextNum = (countRow.count + 1).toString().padStart(3, '0');
+async function generateUniqueCode() {
+  const countRow = await db.prepare('SELECT COUNT(*) as count FROM assets').get();
+  const baseCount = countRow ? countRow.count : 0;
+  const nextNum = (baseCount + 1).toString().padStart(3, '0');
   const year = new Date().getFullYear();
   let candidate = `DMB-${year}-${nextNum}`;
-  let exists = db.prepare('SELECT id FROM assets WHERE asset_code = ?').get(candidate);
+  let exists = await db.prepare('SELECT id FROM assets WHERE asset_code = ?').get(candidate);
   let counter = 1;
   while (exists) {
-    candidate = `DMB-${year}-${(countRow.count + 1 + counter).toString().padStart(3, '0')}`;
-    exists = db.prepare('SELECT id FROM assets WHERE asset_code = ?').get(candidate);
+    candidate = `DMB-${year}-${(baseCount + 1 + counter).toString().padStart(3, '0')}`;
+    exists = await db.prepare('SELECT id FROM assets WHERE asset_code = ?').get(candidate);
     counter++;
   }
   return candidate;
@@ -91,7 +92,8 @@ async function getAssets(req, res) {
       LEFT JOIN users u ON a.assigned_to_user_id = u.id
       ${whereSql}
     `;
-    const totalCount = db.prepare(countSql).get(...params).total;
+    const countRes = await db.prepare(countSql).get(...params);
+    const totalCount = countRes ? countRes.total : 0;
 
     // Allowed sort columns
     const allowedSortCols = ['id', 'name', 'asset_code', 'brand', 'model', 'category', 'status', 'purchase_date', 'created_at'];
@@ -104,6 +106,7 @@ async function getAssets(req, res) {
         a.serial_number, a.purchase_date, a.warranty_end_date, a.purchase_cost,
         a.status, a.notes, a.qr_code_data, a.assigned_to_user_id, a.created_at, a.updated_at,
         u.full_name as assigned_user_name,
+        u.full_name as assigned_to_user_name,
         u.email as assigned_user_email,
         u.department as assigned_user_department,
         u.phone as assigned_user_phone
@@ -114,7 +117,7 @@ async function getAssets(req, res) {
       LIMIT ? OFFSET ?
     `;
 
-    const assets = db.prepare(dataSql).all(...params, parseInt(limit), offset);
+    const assets = await db.prepare(dataSql).all(...params, parseInt(limit), offset);
 
     return res.json({
       success: true,
@@ -136,6 +139,14 @@ async function getAssets(req, res) {
 async function getAssetById(req, res) {
   try {
     const { id } = req.params;
+    const trimmedId = id ? id.toString().trim() : '';
+    const isNumeric = /^\d+$/.test(trimmedId);
+
+    const whereClause = isNumeric
+      ? 'WHERE a.id = ? OR a.asset_code = ? OR a.serial_number = ?'
+      : 'WHERE a.asset_code = ? OR a.serial_number = ?';
+
+    const params = isNumeric ? [parseInt(trimmedId, 10), trimmedId, trimmedId] : [trimmedId, trimmedId];
 
     const sql = `
       SELECT 
@@ -146,10 +157,10 @@ async function getAssetById(req, res) {
         u.phone as assigned_user_phone
       FROM assets a
       LEFT JOIN users u ON a.assigned_to_user_id = u.id
-      WHERE a.id = ? OR a.asset_code = ? OR a.serial_number = ?
+      ${whereClause}
     `;
 
-    const asset = db.prepare(sql).get(id, id, id);
+    const asset = await db.prepare(sql).get(...params);
 
     if (!asset) {
       return res.status(404).json({ success: false, message: 'Demirbaş cihaz bulunamadı.' });
@@ -167,7 +178,7 @@ async function getAssetById(req, res) {
       WHERE asg.asset_id = ?
       ORDER BY asg.assigned_date DESC
     `;
-    const history = db.prepare(historySql).all(asset.id);
+    const history = await db.prepare(historySql).all(asset.id);
 
     return res.json({
       success: true,
@@ -207,7 +218,7 @@ async function createAsset(req, res) {
     }
 
     // Check duplicate serial number
-    const existingSerial = db.prepare('SELECT id FROM assets WHERE serial_number = ?').get(serial_number.trim());
+    const existingSerial = await db.prepare('SELECT id FROM assets WHERE serial_number = ?').get(serial_number.trim());
     if (existingSerial) {
       return res.status(400).json({
         success: false,
@@ -215,7 +226,7 @@ async function createAsset(req, res) {
       });
     }
 
-    const assetCode = generateUniqueCode();
+    const assetCode = await generateUniqueCode();
     const qrCodeData = await generateAssetQrCode(assetCode, name, serial_number, category);
 
     const initialStatus = assigned_to_user_id ? 'zimmetli' : (status || 'depoda');
@@ -228,7 +239,7 @@ async function createAsset(req, res) {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
-    const result = stmt.run(
+    const result = await stmt.run(
       assetCode,
       name.trim(),
       category,
@@ -248,17 +259,17 @@ async function createAsset(req, res) {
 
     // If initial assigned user is provided, create assignment record
     if (assigned_to_user_id) {
-      db.prepare(`
+      await db.prepare(`
         INSERT INTO assignments (asset_id, user_id, assigned_by_user_id, status, handover_notes)
         VALUES (?, ?, ?, 'aktif', 'Demirbaş oluşturulurken personele zimmetlendi.')
       `).run(newAssetId, assigned_to_user_id, req.user.id);
     }
 
     // Audit log
-    db.prepare('INSERT INTO audit_logs (asset_id, user_id, action, details) VALUES (?, ?, ?, ?)')
+    await db.prepare('INSERT INTO audit_logs (asset_id, user_id, action, details) VALUES (?, ?, ?, ?)')
       .run(newAssetId, req.user.id, 'olusturuldu', `Yeni demirbaş eklendi: ${name} (${assetCode})`);
 
-    const createdAsset = db.prepare('SELECT * FROM assets WHERE id = ?').get(newAssetId);
+    const createdAsset = await db.prepare('SELECT * FROM assets WHERE id = ?').get(newAssetId);
 
     return res.status(201).json({
       success: true,
@@ -288,13 +299,17 @@ async function updateAsset(req, res) {
       notes
     } = req.body;
 
-    const existing = db.prepare('SELECT * FROM assets WHERE id = ?').get(id);
+    const trimmedId = id ? id.toString().trim() : '';
+    const isNumeric = /^\d+$/.test(trimmedId);
+    const existing = await db.prepare(
+      isNumeric ? 'SELECT * FROM assets WHERE id = ? OR asset_code = ?' : 'SELECT * FROM assets WHERE asset_code = ?'
+    ).get(isNumeric ? parseInt(trimmedId, 10) : trimmedId, ...(isNumeric ? [trimmedId] : []));
     if (!existing) {
       return res.status(404).json({ success: false, message: 'Güncellenecek demirbaş bulunamadı.' });
     }
 
     if (serial_number && serial_number !== existing.serial_number) {
-      const serialExists = db.prepare('SELECT id FROM assets WHERE serial_number = ? AND id != ?').get(serial_number, id);
+      const serialExists = await db.prepare('SELECT id FROM assets WHERE serial_number = ? AND id != ?').get(serial_number, existing.id);
       if (serialExists) {
         return res.status(400).json({ success: false, message: 'Bu seri numarası başka bir cihazda kayıtlı.' });
       }
@@ -311,7 +326,7 @@ async function updateAsset(req, res) {
       );
     }
 
-    db.prepare(`
+    await db.prepare(`
       UPDATE assets SET
         name = ?, category = ?, brand = ?, model = ?, serial_number = ?,
         purchase_date = ?, warranty_end_date = ?, purchase_cost = ?,
@@ -329,13 +344,13 @@ async function updateAsset(req, res) {
       status || existing.status,
       notes !== undefined ? notes : existing.notes,
       qrCodeData,
-      id
+      existing.id
     );
 
-    db.prepare('INSERT INTO audit_logs (asset_id, user_id, action, details) VALUES (?, ?, ?, ?)')
-      .run(id, req.user.id, 'guncellendi', `Demirbaş bilgileri güncellendi: ${name || existing.name}`);
+    await db.prepare('INSERT INTO audit_logs (asset_id, user_id, action, details) VALUES (?, ?, ?, ?)')
+      .run(existing.id, req.user.id, 'guncellendi', `Demirbaş bilgileri güncellendi: ${name || existing.name}`);
 
-    const updated = db.prepare('SELECT * FROM assets WHERE id = ?').get(id);
+    const updated = await db.prepare('SELECT * FROM assets WHERE id = ?').get(existing.id);
 
     return res.json({
       success: true,
@@ -352,7 +367,11 @@ async function updateAsset(req, res) {
 async function deleteAsset(req, res) {
   try {
     const { id } = req.params;
-    const existing = db.prepare('SELECT * FROM assets WHERE id = ?').get(id);
+    const trimmedId = id ? id.toString().trim() : '';
+    const isNumeric = /^\d+$/.test(trimmedId);
+    const existing = await db.prepare(
+      isNumeric ? 'SELECT * FROM assets WHERE id = ? OR asset_code = ?' : 'SELECT * FROM assets WHERE asset_code = ?'
+    ).get(isNumeric ? parseInt(trimmedId, 10) : trimmedId, ...(isNumeric ? [trimmedId] : []));
 
     if (!existing) {
       return res.status(404).json({ success: false, message: 'Silinecek demirbaş bulunamadı.' });
@@ -365,9 +384,9 @@ async function deleteAsset(req, res) {
       });
     }
 
-    db.prepare('DELETE FROM assets WHERE id = ?').run(id);
+    await db.prepare('DELETE FROM assets WHERE id = ?').run(existing.id);
 
-    db.prepare('INSERT INTO audit_logs (asset_id, user_id, action, details) VALUES (?, ?, ?, ?)')
+    await db.prepare('INSERT INTO audit_logs (asset_id, user_id, action, details) VALUES (?, ?, ?, ?)')
       .run(null, req.user.id, 'silindi', `Demirbaş silindi: ${existing.name} (${existing.asset_code})`);
 
     return res.json({
@@ -385,8 +404,13 @@ async function reportFault(req, res) {
   try {
     const { id } = req.params;
     const { fault_description } = req.body;
+    const trimmedId = id ? id.toString().trim() : '';
+    const isNumeric = /^\d+$/.test(trimmedId);
 
-    const asset = db.prepare('SELECT * FROM assets WHERE id = ?').get(id);
+    const asset = await db.prepare(
+      isNumeric ? 'SELECT * FROM assets WHERE id = ? OR asset_code = ?' : 'SELECT * FROM assets WHERE asset_code = ?'
+    ).get(isNumeric ? parseInt(trimmedId, 10) : trimmedId, ...(isNumeric ? [trimmedId] : []));
+
     if (!asset) {
       return res.status(404).json({ success: false, message: 'Demirbaş bulunamadı.' });
     }
@@ -394,11 +418,11 @@ async function reportFault(req, res) {
     const noteAppend = `\n[ARIZA BİLDİRİMİ - ${new Date().toLocaleString('tr-TR')} - Bildiren: ${req.user.full_name}]: ${fault_description || 'Arıza bildirildi.'}`;
     const newNotes = (asset.notes || '') + noteAppend;
 
-    db.prepare('UPDATE assets SET status = ?, notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
-      .run('arizali', newNotes, id);
+    await db.prepare('UPDATE assets SET status = ?, notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+      .run('arizali', newNotes, asset.id);
 
-    db.prepare('INSERT INTO audit_logs (asset_id, user_id, action, details) VALUES (?, ?, ?, ?)')
-      .run(id, req.user.id, 'ariza_bildirildi', `Arıza bildirildi: ${fault_description || 'Detay belirtilmedi'}`);
+    await db.prepare('INSERT INTO audit_logs (asset_id, user_id, action, details) VALUES (?, ?, ?, ?)')
+      .run(asset.id, req.user.id, 'ariza_bildirildi', `Arıza bildirildi: ${fault_description || 'Detay belirtilmedi'}`);
 
     return res.json({
       success: true,

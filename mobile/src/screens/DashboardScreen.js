@@ -13,7 +13,7 @@ import { useAuth } from '../context/AuthContext';
 import { colors, radius, spacing } from '../styles/theme';
 
 export default function DashboardScreen({ onNavigateTab }) {
-  const { user, logout } = useAuth();
+  const { user, isAdmin, logout } = useAuth();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -41,9 +41,11 @@ export default function DashboardScreen({ onNavigateTab }) {
     >
       {/* User Header */}
       <View style={styles.userBar}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={styles.userName}>{user?.full_name}</Text>
-          <Text style={styles.userDept}>{user?.department || 'Genel Personel'}</Text>
+          <Text style={styles.userDept}>
+            {user?.department || 'Genel Personel'} • {user?.role === 'admin' ? 'Yönetici' : 'Personel'}
+          </Text>
         </View>
         <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
           <Text style={styles.logoutBtnText}>Çıkış Yap</Text>
@@ -52,72 +54,136 @@ export default function DashboardScreen({ onNavigateTab }) {
 
       {/* KPI Cards Grid */}
       <View style={styles.grid}>
-        <View style={[styles.kpiCard, { borderColor: colors.accentCyan }]}>
-          <Text style={styles.kpiVal}>{stats?.totalAssets ?? '—'}</Text>
-          <Text style={styles.kpiLbl}>Toplam Donanım</Text>
-        </View>
-
-        <View style={[styles.kpiCard, { borderColor: colors.statusZimmetli }]}>
-          <Text style={[styles.kpiVal, { color: colors.statusZimmetli }]}>
-            {stats?.assignedAssets ?? '—'}
-          </Text>
-          <Text style={styles.kpiLbl}>Zimmetli Cihaz</Text>
-        </View>
-
-        <View style={[styles.kpiCard, { borderColor: colors.statusDepoda }]}>
-          <Text style={[styles.kpiVal, { color: colors.statusDepoda }]}>
-            {stats?.idleAssets ?? '—'}
-          </Text>
-          <Text style={styles.kpiLbl}>Depoda Boşta</Text>
-        </View>
-
-        <View style={[styles.kpiCard, { borderColor: colors.statusArizali }]}>
-          <Text style={[styles.kpiVal, { color: colors.statusArizali }]}>
-            {stats?.faultyAssets ?? '—'}
-          </Text>
-          <Text style={styles.kpiLbl}>Arızalı Donanım</Text>
-        </View>
-      </View>
-
-      {/* Quick Action Navigation Buttons */}
-      <View style={styles.actionSection}>
         <TouchableOpacity
-          style={styles.actionBtn}
-          onPress={() => onNavigateTab && onNavigateTab('scan')}
+          style={[styles.kpiCard, { borderColor: colors.accentCyan }]}
+          onPress={() => onNavigateTab && onNavigateTab('assets')}
         >
-          <Text style={styles.actionBtnIcon}>📷</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.actionBtnTitle}>QR Kod Okut & Cihaz Tanı</Text>
-            <Text style={styles.actionBtnSub}>Cihaz detaylarını gör ve sahada hızlı teslim/iade yap</Text>
-          </View>
+          <Text style={styles.kpiVal}>{stats?.totalAssets ?? '—'}</Text>
+          <Text style={styles.kpiLbl}>Toplam Donanım ➜</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.actionBtn}
+          style={[styles.kpiCard, { borderColor: colors.statusZimmetli }]}
+          onPress={() => onNavigateTab && onNavigateTab(isAdmin ? 'assignments' : 'my')}
+        >
+          <Text style={[styles.kpiVal, { color: colors.statusZimmetli }]}>
+            {stats?.assignedAssets ?? '—'}
+          </Text>
+          <Text style={styles.kpiLbl}>Zimmetli Cihaz ➜</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.kpiCard, { borderColor: colors.statusDepoda }]}
+          onPress={() => onNavigateTab && onNavigateTab('assets')}
+        >
+          <Text style={[styles.kpiVal, { color: colors.statusDepoda }]}>
+            {stats?.idleAssets ?? '—'}
+          </Text>
+          <Text style={styles.kpiLbl}>Depoda Boşta ➜</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.kpiCard, { borderColor: colors.statusArizali }]}
+          onPress={() => onNavigateTab && onNavigateTab('assets')}
+        >
+          <Text style={[styles.kpiVal, { color: colors.statusArizali }]}>
+            {stats?.faultyAssets ?? '—'}
+          </Text>
+          <Text style={styles.kpiLbl}>Arızalı Donanım ➜</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Quick Action Navigation Grid */}
+      <Text style={styles.sectionTitle}>Hızlı Erişim & İşlemler</Text>
+      <View style={styles.actionGrid}>
+        <TouchableOpacity
+          style={styles.actionGridItem}
+          onPress={() => onNavigateTab && onNavigateTab('assets')}
+        >
+          <Text style={styles.actionGridIcon}>📦</Text>
+          <Text style={styles.actionGridTitle}>Demirbaşlar</Text>
+          <Text style={styles.actionGridSub}>Envanter Listesi</Text>
+        </TouchableOpacity>
+
+        {isAdmin && (
+          <TouchableOpacity
+            style={styles.actionGridItem}
+            onPress={() => onNavigateTab && onNavigateTab('assignments')}
+          >
+            <Text style={styles.actionGridIcon}>📋</Text>
+            <Text style={styles.actionGridTitle}>Zimmetler</Text>
+            <Text style={styles.actionGridSub}>Teslim & İadeler</Text>
+          </TouchableOpacity>
+        )}
+
+        <TouchableOpacity
+          style={styles.actionGridItem}
+          onPress={() => onNavigateTab && onNavigateTab('scan')}
+        >
+          <Text style={styles.actionGridIcon}>📷</Text>
+          <Text style={styles.actionGridTitle}>QR & Barkod</Text>
+          <Text style={styles.actionGridSub}>Saha Cihaz Tanı</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionGridItem}
           onPress={() => onNavigateTab && onNavigateTab('my')}
         >
-          <Text style={styles.actionBtnIcon}>💼</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.actionBtnTitle}>Kişisel Zimmetlerimi İncele</Text>
-            <Text style={styles.actionBtnSub}>Üzerinizdeki zimmetli cihazlar ve arıza bildirimleri</Text>
-          </View>
+          <Text style={styles.actionGridIcon}>💼</Text>
+          <Text style={styles.actionGridTitle}>Zimmetlerim</Text>
+          <Text style={styles.actionGridSub}>Kişisel Cihazlar</Text>
+        </TouchableOpacity>
+
+        {isAdmin && (
+          <>
+            <TouchableOpacity
+              style={styles.actionGridItem}
+              onPress={() => onNavigateTab && onNavigateTab('users')}
+            >
+              <Text style={styles.actionGridIcon}>👥</Text>
+              <Text style={styles.actionGridTitle}>Kullanıcılar</Text>
+              <Text style={styles.actionGridSub}>Personel Yönetimi</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionGridItem}
+              onPress={() => onNavigateTab && onNavigateTab('departments')}
+            >
+              <Text style={styles.actionGridIcon}>🏢</Text>
+              <Text style={styles.actionGridTitle}>Birimler</Text>
+              <Text style={styles.actionGridSub}>Departman & Roller</Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+        <TouchableOpacity
+          style={styles.actionGridItem}
+          onPress={() => onNavigateTab && onNavigateTab('profile')}
+        >
+          <Text style={styles.actionGridIcon}>⚙️</Text>
+          <Text style={styles.actionGridTitle}>Profil & Ayar</Text>
+          <Text style={styles.actionGridSub}>Hesap & Şifre</Text>
         </TouchableOpacity>
       </View>
 
       {/* Recent Activity List */}
       <Text style={styles.sectionTitle}>Son Sistem Hareketleri</Text>
       <View style={styles.activityCard}>
-        {stats?.recentLogs?.slice(0, 5).map((log) => (
-          <View key={log.id} style={styles.logRow}>
-            <View style={styles.logDot} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.logText}>{log.details}</Text>
-              <Text style={styles.logTime}>
-                {new Date(log.created_at).toLocaleString('tr-TR')}
-              </Text>
+        {stats?.recentLogs && stats.recentLogs.length > 0 ? (
+          stats.recentLogs.slice(0, 6).map((log) => (
+            <View key={log.id} style={styles.logRow}>
+              <View style={styles.logDot} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.logText}>{log.details}</Text>
+                <Text style={styles.logTime}>
+                  {new Date(log.created_at).toLocaleString('tr-TR')}
+                </Text>
+              </View>
             </View>
-          </View>
-        ))}
+          ))
+        ) : (
+          <Text style={styles.emptyLogsText}>Henüz sistem hareketi kaydedilmemiş.</Text>
+        )}
       </View>
     </ScrollView>
   );
@@ -130,7 +196,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.md,
-    paddingBottom: 40
+    paddingBottom: 60
   },
   userBar: {
     flexDirection: 'row',
@@ -150,12 +216,13 @@ const styles = StyleSheet.create({
   },
   userDept: {
     fontSize: 12,
-    color: colors.textSecondary
+    color: colors.textSecondary,
+    marginTop: 2
   },
   logoutBtn: {
     backgroundColor: 'rgba(239, 68, 68, 0.15)',
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 7,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: 'rgba(239, 68, 68, 0.3)'
@@ -190,38 +257,44 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontWeight: '600'
   },
-  actionSection: {
-    gap: 10,
-    marginBottom: spacing.md
-  },
-  actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.bgCard,
-    padding: 14,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.borderHighlight,
-    gap: 12
-  },
-  actionBtnIcon: {
-    fontSize: 26
-  },
-  actionBtnTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.textPrimary
-  },
-  actionBtnSub: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    marginTop: 2
-  },
   sectionTitle: {
     fontSize: 14,
     fontWeight: '800',
     color: colors.textPrimary,
-    marginBottom: 8
+    marginBottom: 10,
+    marginTop: 6
+  },
+  actionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: spacing.md
+  },
+  actionGridItem: {
+    width: '31%',
+    backgroundColor: colors.bgCard,
+    paddingVertical: 14,
+    paddingHorizontal: 6,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    alignItems: 'center'
+  },
+  actionGridIcon: {
+    fontSize: 24,
+    marginBottom: 6
+  },
+  actionGridTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    textAlign: 'center'
+  },
+  actionGridSub: {
+    fontSize: 9,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginTop: 2
   },
   activityCard: {
     backgroundColor: colors.bgCard,
@@ -253,5 +326,11 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: colors.textMuted,
     marginTop: 2
+  },
+  emptyLogsText: {
+    color: colors.textMuted,
+    fontSize: 12,
+    textAlign: 'center',
+    paddingVertical: 10
   }
 });

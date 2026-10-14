@@ -49,33 +49,21 @@ export default function Dashboard({ onNavigateTab, onOpenScanner }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* Sleek Compact Welcome Banner */}
-      <div
-        style={{
-          background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.22) 0%, rgba(99, 102, 241, 0.12) 100%)',
-          border: '1px solid var(--border-highlight)',
-          borderRadius: 'var(--radius-lg)',
-          padding: '16px 22px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: 12
-        }}
-      >
+      <div className="dashboard-banner">
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff' }}>
+            <h2 className="banner-title">
               Hoş Geldiniz, {user?.full_name}
             </h2>
             <span style={{ fontSize: '1.1rem' }}>👋</span>
           </div>
-          <p style={{ fontSize: '0.84rem', color: '#cbd5e1' }}>
+          <p className="banner-subtitle">
             IT Demirbaş ve Zimmet Durumu Genel Özeti (Yapay Zeka ve Dijital Dönüşüm Koordinatörlüğü)
           </p>
         </div>
 
         <div style={{ display: 'flex', gap: 10 }}>
-          <button className="btn btn-primary btn-sm" onClick={() => onNavigateTab('assets')}>
+          <button className="btn btn-primary btn-sm" onClick={() => onNavigateTab('assets', '')}>
             <Boxes size={15} />
             <span>Envanteri İncele</span>
           </button>
@@ -89,7 +77,12 @@ export default function Dashboard({ onNavigateTab, onOpenScanner }) {
       {/* KPI Stat Cards Grid - 4 Column Row */}
       <div className="stats-grid">
         {/* Total Assets */}
-        <div className="stat-card" onClick={() => onNavigateTab('assets')} style={{ cursor: 'pointer' }}>
+        <div
+          className="stat-card"
+          onClick={() => onNavigateTab('assets', '')}
+          style={{ cursor: 'pointer' }}
+          title="Tüm kayıtlı demirbaşları listele"
+        >
           <div className="stat-icon-wrapper" style={{ background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8' }}>
             <Boxes size={24} />
           </div>
@@ -101,13 +94,18 @@ export default function Dashboard({ onNavigateTab, onOpenScanner }) {
         </div>
 
         {/* Faulty Assets */}
-        <div className="stat-card" onClick={() => onNavigateTab('assets')} style={{ cursor: 'pointer' }}>
+        <div
+          className="stat-card"
+          onClick={() => onNavigateTab('assets', 'arizali')}
+          style={{ cursor: 'pointer' }}
+          title="Sadece arızalı cihazları filtrele ve görüntüle"
+        >
           <div className="stat-icon-wrapper" style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#f87171' }}>
             <AlertTriangle size={24} />
           </div>
           <div className="stat-info">
             <div className="stat-label">Arızalı Cihazlar</div>
-            <div className="stat-value" style={{ color: stats.faultyAssets > 0 ? '#f87171' : '#ffffff' }}>
+            <div className="stat-value" style={{ color: stats.faultyAssets > 0 ? '#f87171' : 'var(--text-primary)' }}>
               {stats.faultyAssets}
             </div>
             <div className="stat-subtext">Servis bekleyen</div>
@@ -115,7 +113,12 @@ export default function Dashboard({ onNavigateTab, onOpenScanner }) {
         </div>
 
         {/* Idle / In Stock */}
-        <div className="stat-card" onClick={() => onNavigateTab('assets')} style={{ cursor: 'pointer' }}>
+        <div
+          className="stat-card"
+          onClick={() => onNavigateTab('assets', 'depoda')}
+          style={{ cursor: 'pointer' }}
+          title="Sadece depoda / boşta bekleyen cihazları filtrele"
+        >
           <div className="stat-icon-wrapper" style={{ background: 'rgba(59, 130, 246, 0.2)', color: '#60a5fa' }}>
             <Archive size={24} />
           </div>
@@ -127,7 +130,12 @@ export default function Dashboard({ onNavigateTab, onOpenScanner }) {
         </div>
 
         {/* Assigned */}
-        <div className="stat-card" onClick={() => onNavigateTab('assets')} style={{ cursor: 'pointer' }}>
+        <div
+          className="stat-card"
+          onClick={() => onNavigateTab('assets', 'zimmetli')}
+          style={{ cursor: 'pointer' }}
+          title="Sadece personele zimmetli cihazları filtrele"
+        >
           <div className="stat-icon-wrapper" style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#34d399' }}>
             <UserCheck size={24} />
           </div>
@@ -156,12 +164,12 @@ export default function Dashboard({ onNavigateTab, onOpenScanner }) {
               return (
                 <div key={c.category}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: 3 }}>
-                    <span style={{ fontWeight: 700, color: '#ffffff' }}>{c.category}</span>
-                    <span style={{ color: '#38bdf8', fontWeight: 700 }}>
-                      {c.count} adet <span style={{ color: '#94a3b8', fontWeight: 500 }}>({pct}%)</span>
+                    <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{c.category}</span>
+                    <span style={{ color: 'var(--primary)', fontWeight: 700 }}>
+                      {c.count} adet <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>({pct}%)</span>
                     </span>
                   </div>
-                  <div style={{ height: 6, background: '#1e293b', borderRadius: 4, overflow: 'hidden' }}>
+                  <div style={{ height: 6, background: 'var(--bg-surface)', borderRadius: 4, overflow: 'hidden' }}>
                     <div
                       style={{
                         width: `${pct}%`,
@@ -184,7 +192,7 @@ export default function Dashboard({ onNavigateTab, onOpenScanner }) {
               <Users size={17} color="#a855f7" />
               <span>Departman Zimmet Dağılımı</span>
             </div>
-            <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 600 }}>Birim Bazında</span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Birim Bazında</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
             {stats.departmentStats?.length > 0 ? (
@@ -193,12 +201,12 @@ export default function Dashboard({ onNavigateTab, onOpenScanner }) {
                 return (
                   <div key={d.department || 'Birim Yok'}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: 3 }}>
-                      <span style={{ fontWeight: 700, color: '#ffffff' }}>{d.department || 'Birim Belirtilmemiş'}</span>
-                      <span style={{ color: '#c084fc', fontWeight: 700 }}>
-                        {d.count} cihaz <span style={{ color: '#94a3b8', fontWeight: 500 }}>({pct}%)</span>
+                      <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{d.department || 'Birim Belirtilmemiş'}</span>
+                      <span style={{ color: '#a855f7', fontWeight: 700 }}>
+                        {d.count} cihaz <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>({pct}%)</span>
                       </span>
                     </div>
-                    <div style={{ height: 6, background: '#1e293b', borderRadius: 4, overflow: 'hidden' }}>
+                    <div style={{ height: 6, background: 'var(--bg-surface)', borderRadius: 4, overflow: 'hidden' }}>
                       <div
                         style={{
                           width: `${pct}%`,
@@ -212,7 +220,7 @@ export default function Dashboard({ onNavigateTab, onOpenScanner }) {
                 );
               })
             ) : (
-              <div style={{ color: '#94a3b8', fontSize: '0.82rem', textAlign: 'center', padding: '16px' }}>
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.82rem', textAlign: 'center', padding: '16px' }}>
                 Henüz departman zimmeti bulunmuyor.
               </div>
             )}
@@ -227,9 +235,9 @@ export default function Dashboard({ onNavigateTab, onOpenScanner }) {
                 <ShieldCheck size={17} color="#10b981" />
                 <span>Saha & Hızlı Yönetim</span>
               </div>
-              <span style={{ fontSize: '0.75rem', color: '#34d399', fontWeight: 700 }}>Sistem Aktif</span>
+              <span style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 700 }}>Sistem Aktif</span>
             </div>
-            <p style={{ fontSize: '0.82rem', color: '#cbd5e1', marginBottom: 14 }}>
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: 14 }}>
               Donanım işlemleri ve zimmet kayıtlarını tek tıkla başlatın:
             </p>
 
@@ -241,14 +249,14 @@ export default function Dashboard({ onNavigateTab, onOpenScanner }) {
                   if (onOpenScanner) onOpenScanner();
                 }}
               >
-                <QrCode size={16} color="#38bdf8" />
+                <QrCode size={16} color="#0284c7" />
                 <span>QR Kod / Barkod Okuyucu Başlat</span>
               </button>
 
               <button
                 className="btn btn-secondary btn-sm"
                 style={{ justifyContent: 'flex-start', padding: '9px 12px' }}
-                onClick={() => onNavigateTab('assets')}
+                onClick={() => onNavigateTab('assets', '')}
               >
                 <PlusCircle size={16} color="#10b981" />
                 <span>Demirbaş Envanterine Git</span>
@@ -265,25 +273,14 @@ export default function Dashboard({ onNavigateTab, onOpenScanner }) {
             </div>
           </div>
 
-          <div
-            style={{
-              marginTop: 14,
-              padding: '10px 12px',
-              borderRadius: 'var(--radius-sm)',
-              background: 'rgba(2, 132, 199, 0.12)',
-              border: '1px solid rgba(56, 189, 248, 0.25)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between'
-            }}
-          >
-            <div style={{ fontSize: '0.78rem', color: '#cbd5e1' }}>
+          <div className="dashboard-shortcut-box">
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
               Detaylı denetim kayıtları için:
             </div>
             <button
               onClick={() => onNavigateTab('assignments')}
               style={{
-                color: '#38bdf8',
+                color: 'var(--primary)',
                 fontSize: '0.78rem',
                 fontWeight: 700,
                 display: 'flex',
